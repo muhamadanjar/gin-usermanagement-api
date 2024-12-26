@@ -31,3 +31,19 @@ func CreateUser(c *gin.Context) {
 	}
 	c.JSON(http.StatusCreated, user)
 }
+
+func GetUsers(c *gin.Context) {
+
+}
+
+func UpdateUser(c *gin.Context) {
+
+}
+
+func DeleteUser(c *gin.Context) {
+
+}
+
+func GetUserByID(c *gin.Context) {
+
+}
