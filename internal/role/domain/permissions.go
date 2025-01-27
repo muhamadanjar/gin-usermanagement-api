@@ -1,4 +1,4 @@
-package models
+package domain
 
 type Permission struct {
 	ID   uint   `gorm:"primaryKey"`

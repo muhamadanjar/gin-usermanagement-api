@@ -1,35 +1,18 @@
-package models
+package dto
 
-import (
-	"errors"
-	"mime/multipart"
-	"usermanagement-api/utils"
+import "errors"
 
-	"gorm.io/gorm"
-)
-
-type User struct {
-	ID       uint   `gorm:"primaryKey"`
-	Name     string `gorm:"size:100;not null"`
-	Email    string `gorm:"size:100;unique;not null"`
-	Password string `gorm:"not null"`
-	RoleID   uint   `gorm:"not null"`
+type CreateUserRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
 }
 
-func (u *User) BeforeCreate(tx *gorm.DB) error {
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	var err error
-	// u.ID = uuid.New()
-	u.Password, err = utils.HashPassword(u.Password)
-	if err != nil {
-		return err
-	}
-	return nil
+// Untuk output (data dari server ke client)
+type UserResponse struct {
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 const (
@@ -80,34 +63,6 @@ var (
 )
 
 type (
-	UserCreateRequest struct {
-		Name       string                `json:"name" form:"name"`
-		TelpNumber string                `json:"telp_number" form:"telp_number"`
-		Email      string                `json:"email" form:"email"`
-		Image      *multipart.FileHeader `json:"image" form:"image"`
-		Password   string                `json:"password" form:"password"`
-	}
-
-	UserResponse struct {
-		ID         string `json:"id"`
-		Name       string `json:"name"`
-		Email      string `json:"email"`
-		TelpNumber string `json:"telp_number"`
-		Role       string `json:"role"`
-		ImageUrl   string `json:"image_url"`
-		IsVerified bool   `json:"is_verified"`
-	}
-
-	UserPaginationResponse struct {
-		Data []UserResponse `json:"data"`
-		PaginationResponse
-	}
-
-	GetAllUserRepositoryResponse struct {
-		Users []User `json:"users"`
-		PaginationResponse
-	}
-
 	UserUpdateRequest struct {
 		Name       string `json:"name" form:"name"`
 		TelpNumber string `json:"telp_number" form:"telp_number"`
