@@ -14,7 +14,7 @@ func NewPostgresDB(dsn string) *gorm.DB {
 	}
 
 	// Migrasi model GORM
-	db.AutoMigrate(&repository.UserModel{}, &repository.PostModel{})
+	// db.AutoMigrate(&repository.UserModel{}, &repository.PostModel{})
 
 	return db
 }
