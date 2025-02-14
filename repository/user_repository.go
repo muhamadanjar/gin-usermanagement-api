@@ -1,29 +1,28 @@
 package repository
 
 import (
+	"usermanagement-api/domain"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
-
-type UserRepository interface {
-	CreateUser()
-	EditUser()
-	ViewUser()
-	DeleteUser(id uuid.UUID)
-}
 
 type userRepository struct {
 	db *gorm.DB
 }
 
-func NewUserRepository(db *gorm.DB) UserRepository {
+func NewUserRepository(db *gorm.DB) *userRepository {
 	return &userRepository{
 		db: db,
 	}
 }
 
-func (r *userRepository) CreateUser() {
+func (r *userRepository) GetAll([]domain.User, error) {
 
+}
+
+func (r *userRepository) CreateUser(user *domain.User) error {
+	return r.db.Create(user).Error
 }
 
 func (r *userRepository) EditUser() {
