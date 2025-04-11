@@ -21,6 +21,7 @@ func ConnectDB() *gorm.DB {
 		os.Getenv("DB_NAME"),
 		os.Getenv("DB_SSLMODE"),
 	)
+	fmt.Println(dsn)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
@@ -35,6 +36,7 @@ func ConnectDB() *gorm.DB {
 
 // MigrateDB migrates the database schema
 func MigrateDB(db *gorm.DB) {
+	db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";")
 	err := db.AutoMigrate(
 		&entities.User{},
 		&entities.Role{},
