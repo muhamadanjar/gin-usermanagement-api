@@ -99,7 +99,7 @@ func (h *PermissionHandler) GetAllPermissions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"permissions": permissions,
+		"data": permissions,
 		"meta": gin.H{
 			"page":       page,
 			"page_size":  pageSize,

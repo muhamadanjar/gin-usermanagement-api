@@ -110,7 +110,7 @@ func (h *RoleHandler) GetAllRoles(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"roles": roles,
+		"data": roles,
 		"meta": gin.H{
 			"page":       page,
 			"page_size":  pageSize,

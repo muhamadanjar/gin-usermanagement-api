@@ -110,7 +110,7 @@ func (h *MenuHandler) GetAllMenus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"menus": menus,
+		"data": menus,
 		"meta": gin.H{
 			"page":       page,
 			"page_size":  pageSize,

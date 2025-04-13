@@ -8,7 +8,7 @@ import (
 )
 
 type ModelPermission struct {
-	ID           uuid.UUID      `gorm:"type:uuid;primaryKey"`
+	ID           uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	ModelID      uuid.UUID      `gorm:"not null" json:"model_id"`
 	ModelType    string         `gorm:"not null" json:"model_type"` // Can be "role" or "menu" or other types
 	PermissionID uuid.UUID      `gorm:"not null" json:"permission_id"`

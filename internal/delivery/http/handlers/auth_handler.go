@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"usermanagement-api/internal/constants"
 	"usermanagement-api/internal/dto"
@@ -73,15 +74,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Failure 401 {object} map[string]string
 // @Router /auth/permissions [get]
 func (h *AuthHandler) GetUserPermissions(c *gin.Context) {
-	userID, exists := c.Get(constants.UserIDKey)
+	userID, exists := c.Get("userID")
+	fmt.Println("user id", userID)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
 		return
 	}
 
-	userUUID, err := uuid.Parse(userID.(string))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID format"})
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid userID format"})
 		return
 	}
 	permissions, err := h.authUseCase.GetUserPermissions(userUUID)

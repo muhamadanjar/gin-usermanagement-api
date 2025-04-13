@@ -62,6 +62,11 @@ func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) 
 		return nil, err
 	}
 
+	authResp := &dto.AuthResponse{
+		Token: token,
+		Type:  "Bearer",
+	}
+
 	// Map user to response
 	userResp := &dto.UserResponse{
 		ID:        user.ID,
@@ -85,8 +90,8 @@ func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) 
 	}
 
 	return &dto.LoginResponse{
-		Token: token,
-		User:  *userResp,
+		Auth: *authResp,
+		User: *userResp,
 	}, nil
 }
 

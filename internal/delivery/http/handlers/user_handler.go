@@ -110,7 +110,7 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"users": users,
+		"data": users,
 		"meta": gin.H{
 			"page":       page,
 			"page_size":  pageSize,

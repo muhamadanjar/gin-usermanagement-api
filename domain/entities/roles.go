@@ -8,7 +8,7 @@ import (
 )
 
 type Role struct {
-	ID          uuid.UUID      `gorm:"type:uuid;primaryKey"`
+	ID          uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	Name        string         `gorm:"unique;not null" json:"name"`
 	Description string         `json:"description"`
 	Users       []*User        `gorm:"many2many:user_roles;" json:"users,omitempty"`

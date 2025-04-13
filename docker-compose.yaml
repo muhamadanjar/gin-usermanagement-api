@@ -4,7 +4,7 @@ services:
     expose:
       - "8001"
     volumes:
-      - ./UserManagementService:/app/UserManagementService # Mount the compiled binary
+      - ./build/usersmanagement:/app/usersmanagementservice # Mount the compiled binary
     working_dir: /app
     environment:
       - GO_ENV=development
@@ -14,7 +14,7 @@ services:
       - DATABASE_NAME=kemen_usermanagement
       - DATABASE_PORT=5432
     command: >
-      sh -c "./UserManagementService"
+      sh -c "./usermanagementservice"
     networks:
       - shared-network
 
