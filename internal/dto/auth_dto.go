@@ -7,7 +7,7 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-type LoginResponse struct {
+type AuthInfoResponse struct {
 	Auth AuthResponse `json:"auth"`
 	User UserResponse `json:"user"`
 }

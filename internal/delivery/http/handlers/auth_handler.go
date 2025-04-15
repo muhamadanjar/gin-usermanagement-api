@@ -6,6 +6,7 @@ import (
 	"usermanagement-api/internal/constants"
 	"usermanagement-api/internal/dto"
 	"usermanagement-api/internal/usecase"
+	"usermanagement-api/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -167,4 +168,27 @@ func (h *AuthHandler) GetModelPermissions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, permissions)
+}
+
+// GetUser
+func (h *AuthHandler) GetUser(c *gin.Context) {
+
+	userID, exists := c.Get(constants.UserIDKey)
+	fmt.Println("user id", userID)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+		return
+	}
+
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid userID format"})
+		return
+	}
+	auth, err := h.authUseCase.GetUser(userUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+	}
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Get User "+auth.User.FirstName, auth))
+
 }

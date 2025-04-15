@@ -43,6 +43,8 @@ func MigrateDB(db *gorm.DB) {
 		&entities.Permission{},
 		&entities.Menu{},
 		&entities.ModelPermission{},
+		&entities.Setting{},
+		&entities.UserMeta{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)

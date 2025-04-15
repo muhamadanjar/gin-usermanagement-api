@@ -1,0 +1,57 @@
+# VCS
+.git
+.gitignore
+.github
+
+# Build artifacts
+bin/
+build/
+dist/
+tmp/
+vendor/
+
+# IDE dan editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Environment & config
+.env*
+.DS_Store
+*.env
+*.local
+
+# Documentation
+docs/
+README.md
+LICENSE
+CHANGELOG.md
+
+# Tests
+*_test.go
+tests/
+coverage.out
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Assets yang tidak perlu
+*.md
+*.txt
+*.pdf
+assets/
+static/
+node_modules/

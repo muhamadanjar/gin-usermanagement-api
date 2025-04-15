@@ -2,11 +2,14 @@ package app
 
 func (s *Server) setupRoutes() {
 	// Public routes
-	s.router.POST("/api/auth/login", s.authHandler.Login)
-	s.router.POST("/api/auth/register", s.authHandler.Register)
+
+	public := s.router.Group("/")
+
+	public.POST("/auth/login", s.authHandler.Login)
+	public.POST("/auth/register", s.authHandler.Register)
 
 	// Protected routes
-	api := s.router.Group("/api")
+	api := s.router.Group("/")
 	api.Use(s.authMiddleware.RequireAuth())
 
 	// Auth routes
@@ -15,6 +18,7 @@ func (s *Server) setupRoutes() {
 		auth.GET("/permissions", s.authHandler.GetUserPermissions)
 		auth.POST("/model-permissions", s.authHandler.CreateModelPermission)
 		auth.GET("/model-permissions", s.authHandler.GetModelPermissions)
+		auth.GET("/info", s.authHandler.GetUser)
 	}
 
 	// User routes

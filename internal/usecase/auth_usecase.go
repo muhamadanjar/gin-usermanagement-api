@@ -13,12 +13,13 @@ import (
 )
 
 type AuthUseCase interface {
-	Login(req *dto.LoginRequest) (*dto.LoginResponse, error)
+	Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, error)
 	Register(req *dto.RegisterRequest) (*dto.UserResponse, error)
 	GetUserPermissions(userID uuid.UUID) ([]*entities.Permission, error)
 	CreateModelPermission(req *dto.ModelPermissionRequest) (*dto.ModelPermissionResponse, error)
 	GetModelPermissions(modelType string, modelID uuid.UUID) ([]*dto.ModelPermissionResponse, error)
 	CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error)
+	GetUser(userID uuid.UUID) (*dto.AuthInfoResponse, error)
 }
 
 type authUseCase struct {
@@ -39,7 +40,7 @@ func NewAuthUseCase(
 	}
 }
 
-func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
+func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, error) {
 	// Find user by email
 	user, err := uc.userRepo.FindByEmail(req.Email)
 	if err != nil {
@@ -89,7 +90,7 @@ func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) 
 		}
 	}
 
-	return &dto.LoginResponse{
+	return &dto.AuthInfoResponse{
 		Auth: *authResp,
 		User: *userResp,
 	}, nil
@@ -222,4 +223,31 @@ func (uc *authUseCase) GetModelPermissions(modelType string, modelID uuid.UUID) 
 
 func (uc *authUseCase) CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error) {
 	return uc.modelPermissionRepo.CheckPermission(modelType, modelID, permissionID)
+}
+
+func (uc *authUseCase) GetUser(userID uuid.UUID) (*dto.AuthInfoResponse, error) {
+
+	user, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	userResp := &dto.UserResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Active:    user.Active,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+	}
+
+	return &dto.AuthInfoResponse{
+		User: *userResp,
+		Auth: dto.AuthResponse{
+			Token: "",
+			Type:  "Bearer",
+		},
+	}, nil
 }
