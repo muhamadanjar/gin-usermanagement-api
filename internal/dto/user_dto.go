@@ -27,7 +27,7 @@ type UserResponse struct {
 	Email     string       `json:"email"`
 	FirstName string       `json:"first_name"`
 	LastName  string       `json:"last_name"`
-	Active    bool         `json:"active"`
+	IsActive  bool         `json:"is_active"`
 	Roles     []RoleSimple `json:"roles,omitempty"`
 	CreatedAt string       `json:"created_at"`
 	UpdatedAt string       `json:"updated_at"`

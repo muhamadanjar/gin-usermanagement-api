@@ -14,7 +14,7 @@ type User struct {
 	Password  string         `gorm:"not null" json:"-"`
 	FirstName string         `json:"first_name"`
 	LastName  string         `json:"last_name"`
-	Active    bool           `gorm:"default:true" json:"active"`
+	IsActive  bool           `gorm:"default:true" json:"is_active"`
 	Roles     []*Role        `gorm:"many2many:user_roles;" json:"roles"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`

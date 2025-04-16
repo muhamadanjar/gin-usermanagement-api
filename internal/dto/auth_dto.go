@@ -3,7 +3,8 @@ package dto
 import "github.com/google/uuid"
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	// Email    string `json:"email" binding:"required,email"`
+	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
@@ -13,8 +14,9 @@ type AuthInfoResponse struct {
 }
 
 type AuthResponse struct {
-	Token string `json:"token"`
-	Type  string `json:"type"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	Type         string `json:"type"`
 }
 
 type RegisterRequest struct {

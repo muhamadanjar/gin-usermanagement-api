@@ -75,7 +75,7 @@ func (m *authMiddleware) RequireAuth() gin.HandlerFunc {
 		}
 
 		// Check if user is active
-		if !user.Active {
+		if !user.IsActive {
 			c.JSON(http.StatusForbidden, gin.H{"error": constants.ErrForbidden})
 			c.Abort()
 			return
@@ -102,6 +102,8 @@ func (m *authMiddleware) RequireAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		c.Set(constants.AccessToken, tokenString)
 
 		// Store user ID in the context
 		c.Set(constants.UserIDKey, user.ID)

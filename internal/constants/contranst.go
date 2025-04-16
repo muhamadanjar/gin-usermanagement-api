@@ -5,6 +5,8 @@ const (
 	UserIDKey      = "userID"
 	UserRolesKey   = "userRoles"
 	PermissionsKey = "permissions"
+	AccessToken    = "access_token"
+	RefreshToken   = "refresh_token"
 )
 
 // Authentication errors

@@ -42,13 +42,13 @@ func NewAuthUseCase(
 
 func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, error) {
 	// Find user by email
-	user, err := uc.userRepo.FindByEmail(req.Email)
+	user, err := uc.userRepo.FindByUsername(req.Username)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
 	// Check if user is active
-	if !user.Active {
+	if !user.IsActive {
 		return nil, errors.New("account is deactivated")
 	}
 
@@ -64,8 +64,9 @@ func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, erro
 	}
 
 	authResp := &dto.AuthResponse{
-		Token: token,
-		Type:  "Bearer",
+		AccessToken:  token,
+		RefreshToken: "",
+		Type:         "Bearer",
 	}
 
 	// Map user to response
@@ -75,7 +76,7 @@ func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, erro
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-		Active:    user.Active,
+		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}
@@ -120,7 +121,7 @@ func (uc *authUseCase) Register(req *dto.RegisterRequest) (*dto.UserResponse, er
 		Password:  hashedPassword,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Active:    true,
+		IsActive:  true,
 	}
 
 	// Save user
@@ -134,7 +135,7 @@ func (uc *authUseCase) Register(req *dto.RegisterRequest) (*dto.UserResponse, er
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-		Active:    user.Active,
+		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}, nil
@@ -238,7 +239,7 @@ func (uc *authUseCase) GetUser(userID uuid.UUID) (*dto.AuthInfoResponse, error) 
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-		Active:    user.Active,
+		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}
@@ -246,8 +247,8 @@ func (uc *authUseCase) GetUser(userID uuid.UUID) (*dto.AuthInfoResponse, error) 
 	return &dto.AuthInfoResponse{
 		User: *userResp,
 		Auth: dto.AuthResponse{
-			Token: "",
-			Type:  "Bearer",
+			AccessToken: "",
+			Type:        "Bearer",
 		},
 	}, nil
 }

@@ -2,7 +2,7 @@ package app
 
 func (s *Server) setupRoutes() {
 	// Public routes
-
+	s.router.Use(s.corsMiddleware.SetupCORS())
 	public := s.router.Group("/")
 
 	public.POST("/auth/login", s.authHandler.Login)

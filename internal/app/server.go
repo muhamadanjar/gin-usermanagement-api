@@ -29,6 +29,7 @@ type Server struct {
 	menuHandler       *handlers.MenuHandler
 	authHandler       *handlers.AuthHandler
 	authMiddleware    middleware.AuthMiddleware
+	corsMiddleware    middleware.CORSMiddleware
 }
 
 func NewServer() *Server {
@@ -63,6 +64,7 @@ func (s *Server) Initialize() error {
 
 	// Initialize middleware
 	s.authMiddleware = middleware.NewAuthMiddleware(userRepo, roleRepo, permissionRepo, modelPermissionRepo)
+	s.corsMiddleware = middleware.NewCORSMiddleware()
 
 	// Initialize handlers
 	s.userHandler = handlers.NewUserHandler(userUseCase)

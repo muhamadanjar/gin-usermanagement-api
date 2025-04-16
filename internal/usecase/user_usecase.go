@@ -56,7 +56,7 @@ func (uc *userUseCase) Create(req *dto.CreateUserRequest) (*dto.UserResponse, er
 		Password:  hashedPassword,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Active:    true,
+		IsActive:  true,
 	}
 
 	// Add roles if provided
@@ -144,7 +144,7 @@ func (uc *userUseCase) Update(id uuid.UUID, req *dto.UpdateUserRequest) (*dto.Us
 	}
 
 	if req.Active != nil {
-		user.Active = *req.Active
+		user.IsActive = *req.Active
 	}
 
 	// Update user
@@ -199,7 +199,7 @@ func (uc *userUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse 
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-		Active:    user.Active,
+		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}

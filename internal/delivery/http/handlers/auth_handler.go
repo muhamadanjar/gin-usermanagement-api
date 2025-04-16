@@ -35,7 +35,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, gin.H{"data": resp, "message": "Login Success"})
 }
 
 // Register godoc
@@ -188,6 +188,10 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 	auth, err := h.authUseCase.GetUser(userUUID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+	}
+	accessToken, exists := c.Get("AcessToken")
+	if exists {
+		auth.Auth.AccessToken = accessToken.(string)
 	}
 	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Get User "+auth.User.FirstName, auth))
 
