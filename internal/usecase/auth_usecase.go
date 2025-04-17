@@ -19,7 +19,7 @@ type AuthUseCase interface {
 	CreateModelPermission(req *dto.ModelPermissionRequest) (*dto.ModelPermissionResponse, error)
 	GetModelPermissions(modelType string, modelID uuid.UUID) ([]*dto.ModelPermissionResponse, error)
 	CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error)
-	GetUser(userID uuid.UUID) (*dto.AuthInfoResponse, error)
+	GetUser(userID uuid.UUID, token string) (*dto.AuthInfoResponse, error)
 }
 
 type authUseCase struct {
@@ -226,7 +226,7 @@ func (uc *authUseCase) CheckPermission(modelType string, modelID uuid.UUID, perm
 	return uc.modelPermissionRepo.CheckPermission(modelType, modelID, permissionID)
 }
 
-func (uc *authUseCase) GetUser(userID uuid.UUID) (*dto.AuthInfoResponse, error) {
+func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoResponse, error) {
 
 	user, err := uc.userRepo.FindByID(userID)
 	if err != nil {
@@ -247,7 +247,7 @@ func (uc *authUseCase) GetUser(userID uuid.UUID) (*dto.AuthInfoResponse, error) 
 	return &dto.AuthInfoResponse{
 		User: *userResp,
 		Auth: dto.AuthResponse{
-			AccessToken: "",
+			AccessToken: token,
 			Type:        "Bearer",
 		},
 	}, nil

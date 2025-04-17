@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -43,12 +44,13 @@ func (m *corsMiddleware) SetupCORS() gin.HandlerFunc {
 			maxAge = time.Duration(maxAgeSeconds) * time.Second
 		}
 	}
+	fmt.Println("allow Origins:", allowedOrigins)
 
 	// Create CORS configuration
 	return cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: allowCredentials,
 		MaxAge:           maxAge,

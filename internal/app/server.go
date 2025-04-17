@@ -75,6 +75,7 @@ func (s *Server) Initialize() error {
 
 	// Initialize router
 	s.router = gin.Default()
+	s.router.Use(s.corsMiddleware.SetupCORS())
 
 	// Setup routes
 	s.setupRoutes()

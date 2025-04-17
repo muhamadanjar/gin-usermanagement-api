@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"usermanagement-api/internal/constants"
 	"usermanagement-api/internal/dto"
 	"usermanagement-api/internal/usecase"
@@ -185,7 +186,14 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid userID format"})
 		return
 	}
-	auth, err := h.authUseCase.GetUser(userUUID)
+
+	authHeader := c.GetHeader("Authorization")
+	token := ""
+	if authHeader != "" && len(authHeader) > 7 && strings.HasPrefix(authHeader, "Bearer ") {
+		token = authHeader[7:]
+	}
+
+	auth, err := h.authUseCase.GetUser(userUUID, token)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 	}
