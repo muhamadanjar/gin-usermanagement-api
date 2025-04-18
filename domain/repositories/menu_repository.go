@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"fmt"
 	"usermanagement-api/domain/entities"
 
 	"github.com/google/uuid"
@@ -66,7 +67,8 @@ func (r *menuRepository) FindAll(page, pageSize int) ([]*entities.Menu, int64, e
 
 func (r *menuRepository) FindAllActive() ([]*entities.Menu, error) {
 	var menus []*entities.Menu
-	if err := r.db.Preload("Children", "active = ?", true).Where("active = ? AND parent_id IS NULL", true).Order("\"order\" asc").Find(&menus).Error; err != nil {
+	// parent_id IS NULL
+	if err := r.db.Preload("Children", "active = ?", true).Where("active = ?", true).Order("\"order\" asc").Find(&menus).Error; err != nil {
 		return nil, err
 	}
 	return menus, nil
@@ -99,12 +101,22 @@ func (r *menuRepository) Delete(id uuid.UUID) error {
 
 func (r *menuRepository) FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, error) {
 	var menus []*entities.Menu
+	var permissionIDs []uuid.UUID
+	perm_err := r.db.Table("role_permissions").
+		Select("permission_id").
+		Where("role_id = ?", roleID).
+		Pluck("permission_id", &permissionIDs).Error
+	if perm_err != nil {
+		return nil, perm_err
+	}
+
+	fmt.Println("perms ids", permissionIDs)
 
 	// This query assumes you have a role_menus table that connects roles to menus
 	// You might need to modify this based on your actual database structure
 	err := r.db.Table("menus").
-		Joins("INNER JOIN role_menus ON menus.id = role_menus.menu_id").
-		Where("role_menus.role_id = ?", roleID).
+		Joins("INNER JOIN model_permissions ON menus.id = CAST(model_permissions.model_id as uuid)").
+		Where("model_permissions.model_type = ? AND model_permissions.permission_id IN ? AND menus.is_visible = ?", "menu", permissionIDs, true).
 		Find(&menus).Error
 
 	return menus, err

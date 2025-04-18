@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"errors"
-	"strings"
+	"fmt"
 	"time"
 	"usermanagement-api/domain/entities"
 	"usermanagement-api/domain/repositories"
@@ -243,7 +243,9 @@ func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoRes
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
+		Name:      user.FirstName + " " + user.LastName,
 		IsActive:  user.IsActive,
+		AvatarUrl: "https://gravatar.com/avatar/" + user.Email,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}
@@ -256,14 +258,15 @@ func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoRes
 				Name: role.Name,
 			})
 
-			// Check if user has superadmin role
-			if strings.ToLower(role.Name) == "superadmin" {
-				userResp.IsSuperuser = true
-			}
+			// // Check if user has superadmin role
+			// if strings.ToLower(role.Name) == "superadmin" {
+			// 	userResp.IsSuperuser = true
+			// }
 		}
 	}
 
 	privileges, err := uc.getPrivilegesForUser(user.ID)
+	fmt.Println("Privileges:", privileges)
 	if err == nil && len(privileges) > 0 {
 		userResp.Privileges = privileges
 	}
@@ -286,6 +289,7 @@ func (uc *authUseCase) getPrivilegesForUser(userID uuid.UUID) ([]dto.MenuRespons
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("User Roles:", userID)
 
 	// Get all menu IDs accessible by these roles
 	var menuIDs []uuid.UUID

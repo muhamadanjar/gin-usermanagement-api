@@ -200,6 +200,7 @@ func (uc *userUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse 
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		IsActive:  user.IsActive,
+		AvatarUrl: "https://gravatar.com/avatar/" + user.Email,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}

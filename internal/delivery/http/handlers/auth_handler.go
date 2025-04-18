@@ -175,7 +175,6 @@ func (h *AuthHandler) GetModelPermissions(c *gin.Context) {
 func (h *AuthHandler) GetUser(c *gin.Context) {
 
 	userID, exists := c.Get(constants.UserIDKey)
-	fmt.Println("user id", userID)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
 		return

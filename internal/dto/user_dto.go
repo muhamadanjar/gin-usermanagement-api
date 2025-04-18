@@ -27,10 +27,12 @@ type UserResponse struct {
 	Email       string         `json:"email"`
 	FirstName   string         `json:"first_name"`
 	LastName    string         `json:"last_name"`
+	Name        string         `json:"name"`
 	IsActive    bool           `json:"is_active"`
 	IsSuperuser bool           `json:"is_superuser"`
 	Roles       []RoleSimple   `json:"roles,omitempty"`
 	Privileges  []MenuResponse `json:"privileges,omitempty"`
+	AvatarUrl   string         `json:"avatar_url"`
 	CreatedAt   string         `json:"created_at"`
 	UpdatedAt   string         `json:"updated_at"`
 }

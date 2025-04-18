@@ -91,7 +91,7 @@ func (uc *menuUseCase) GetAllActive() ([]*dto.MenuResponse, error) {
 
 	var response []*dto.MenuResponse
 	for _, menu := range menus {
-		response = append(response, uc.mapToMenuResponse(menu))
+		response = append(response, uc.mapToMenuSimpleResponse(menu))
 	}
 
 	return response, nil
@@ -165,7 +165,7 @@ func (uc *menuUseCase) Delete(id uuid.UUID) error {
 	return uc.menuRepo.Delete(id)
 }
 
-func (uc *menuUseCase) mapToMenuSimpleResponse(menu *entities.Menu) *dto.MenuResponse{
+func (uc *menuUseCase) mapToMenuSimpleResponse(menu *entities.Menu) *dto.MenuResponse {
 	resp := &dto.MenuResponse{
 		ID:          menu.ID,
 		Name:        menu.Name,
