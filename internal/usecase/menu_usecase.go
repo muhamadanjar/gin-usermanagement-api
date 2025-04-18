@@ -38,12 +38,12 @@ func (uc *menuUseCase) Create(req *dto.CreateMenuRequest) (*dto.MenuResponse, er
 	// Create menu
 	menu := &entities.Menu{
 		Name:        req.Name,
-		Path:        req.Path,
+		Url:         req.Url,
 		Icon:        req.Icon,
 		Description: req.Description,
 		ParentID:    req.ParentID,
-		Order:       req.Order,
-		Active:      true,
+		Sequence:    req.Sequence,
+		IsActive:    true,
 	}
 
 	// Save menu
@@ -77,7 +77,7 @@ func (uc *menuUseCase) GetAll(page, pageSize int) ([]*dto.MenuResponse, int64, e
 
 	var response []*dto.MenuResponse
 	for _, menu := range menus {
-		response = append(response, uc.mapToMenuResponse(menu))
+		response = append(response, uc.mapToMenuSimpleResponse(menu))
 	}
 
 	return response, total, nil
@@ -112,8 +112,8 @@ func (uc *menuUseCase) Update(id uuid.UUID, req *dto.UpdateMenuRequest) (*dto.Me
 		menu.Name = req.Name
 	}
 
-	if req.Path != "" {
-		menu.Path = req.Path
+	if req.Url != "" {
+		menu.Url = req.Url
 	}
 
 	if req.Icon != "" {
@@ -128,12 +128,12 @@ func (uc *menuUseCase) Update(id uuid.UUID, req *dto.UpdateMenuRequest) (*dto.Me
 		menu.ParentID = req.ParentID
 	}
 
-	if req.Order != 0 {
-		menu.Order = req.Order
+	if req.Sequence != 0 {
+		menu.Sequence = req.Sequence
 	}
 
-	if req.Active != nil {
-		menu.Active = *req.Active
+	if req.IsActive != nil {
+		menu.IsActive = *req.IsActive
 	}
 
 	// Update menu
@@ -165,16 +165,33 @@ func (uc *menuUseCase) Delete(id uuid.UUID) error {
 	return uc.menuRepo.Delete(id)
 }
 
+func (uc *menuUseCase) mapToMenuSimpleResponse(menu *entities.Menu) *dto.MenuResponse{
+	resp := &dto.MenuResponse{
+		ID:          menu.ID,
+		Name:        menu.Name,
+		Url:         menu.Url,
+		Icon:        menu.Icon,
+		Description: menu.Description,
+		ParentID:    menu.ParentID,
+		Sequence:    menu.Sequence,
+		IsActive:    menu.IsActive,
+		CreatedAt:   menu.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   menu.UpdatedAt.Format(time.RFC3339),
+	}
+	return resp
+
+}
+
 func (uc *menuUseCase) mapToMenuResponse(menu *entities.Menu) *dto.MenuResponse {
 	resp := &dto.MenuResponse{
 		ID:          menu.ID,
 		Name:        menu.Name,
-		Path:        menu.Path,
+		Url:         menu.Url,
 		Icon:        menu.Icon,
 		Description: menu.Description,
 		ParentID:    menu.ParentID,
-		Order:       menu.Order,
-		Active:      menu.Active,
+		Sequence:    menu.Sequence,
+		IsActive:    menu.IsActive,
 		CreatedAt:   menu.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:   menu.UpdatedAt.Format(time.RFC3339),
 	}
@@ -184,7 +201,7 @@ func (uc *menuUseCase) mapToMenuResponse(menu *entities.Menu) *dto.MenuResponse 
 		resp.Parent = &dto.MenuSimple{
 			ID:   menu.Parent.ID,
 			Name: menu.Parent.Name,
-			Path: menu.Parent.Path,
+			Url:  menu.Parent.Url,
 		}
 	}
 
@@ -194,7 +211,7 @@ func (uc *menuUseCase) mapToMenuResponse(menu *entities.Menu) *dto.MenuResponse 
 			resp.Children = append(resp.Children, &dto.MenuSimple{
 				ID:   child.ID,
 				Name: child.Name,
-				Path: child.Path,
+				Url:  child.Url,
 			})
 		}
 	}

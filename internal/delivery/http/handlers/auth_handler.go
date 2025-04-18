@@ -76,7 +76,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Failure 401 {object} map[string]string
 // @Router /auth/permissions [get]
 func (h *AuthHandler) GetUserPermissions(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get(constants.UserIDKey)
 	fmt.Println("user id", userID)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
@@ -197,10 +197,6 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 	}
-	accessToken, exists := c.Get("AcessToken")
-	if exists {
-		auth.Auth.AccessToken = accessToken.(string)
-	}
-	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Get User "+auth.User.FirstName, auth))
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Get User "+auth.User.FirstName, auth.User))
 
 }

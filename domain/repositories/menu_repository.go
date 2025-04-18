@@ -16,6 +16,7 @@ type MenuRepository interface {
 	FindAllByParentID(parentID *uuid.UUID) ([]*entities.Menu, error)
 	Update(menu *entities.Menu) error
 	Delete(id uuid.UUID) error
+	FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, error)
 }
 
 type menuRepository struct {
@@ -56,7 +57,7 @@ func (r *menuRepository) FindAll(page, pageSize int) ([]*entities.Menu, int64, e
 		return nil, 0, err
 	}
 
-	if err := r.db.Preload("Children").Where("parent_id IS NULL").Offset(offset).Limit(pageSize).Find(&menus).Error; err != nil {
+	if err := r.db.Preload("Children").Offset(offset).Limit(pageSize).Find(&menus).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -94,4 +95,17 @@ func (r *menuRepository) Update(menu *entities.Menu) error {
 
 func (r *menuRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&entities.Menu{}, id).Error
+}
+
+func (r *menuRepository) FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, error) {
+	var menus []*entities.Menu
+
+	// This query assumes you have a role_menus table that connects roles to menus
+	// You might need to modify this based on your actual database structure
+	err := r.db.Table("menus").
+		Joins("INNER JOIN role_menus ON menus.id = role_menus.menu_id").
+		Where("role_menus.role_id = ?", roleID).
+		Find(&menus).Error
+
+	return menus, err
 }

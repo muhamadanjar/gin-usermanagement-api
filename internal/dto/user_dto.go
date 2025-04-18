@@ -22,19 +22,25 @@ type UpdateUserRequest struct {
 }
 
 type UserResponse struct {
-	ID        uuid.UUID    `json:"id"`
-	Username  string       `json:"username"`
-	Email     string       `json:"email"`
-	FirstName string       `json:"first_name"`
-	LastName  string       `json:"last_name"`
-	IsActive  bool         `json:"is_active"`
-	Roles     []RoleSimple `json:"roles,omitempty"`
-	CreatedAt string       `json:"created_at"`
-	UpdatedAt string       `json:"updated_at"`
+	ID          uuid.UUID      `json:"id"`
+	Username    string         `json:"username"`
+	Email       string         `json:"email"`
+	FirstName   string         `json:"first_name"`
+	LastName    string         `json:"last_name"`
+	IsActive    bool           `json:"is_active"`
+	IsSuperuser bool           `json:"is_superuser"`
+	Roles       []RoleSimple   `json:"roles,omitempty"`
+	Privileges  []MenuResponse `json:"privileges,omitempty"`
+	CreatedAt   string         `json:"created_at"`
+	UpdatedAt   string         `json:"updated_at"`
 }
 
 type UserSimple struct {
 	ID       uuid.UUID `json:"id"`
 	Username string    `json:"username"`
 	Email    string    `json:"email"`
+}
+
+type AssignRolesRequest struct {
+	RoleIDs []uuid.UUID `json:"roles_ids" binding:"required"`
 }

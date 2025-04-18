@@ -60,7 +60,7 @@ func (s *Server) Initialize() error {
 	roleUseCase := usecase.NewRoleUseCase(roleRepo, permissionRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
 	menuUseCase := usecase.NewMenuUseCase(menuRepo)
-	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, modelPermissionRepo)
+	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo)
 
 	// Initialize middleware
 	s.authMiddleware = middleware.NewAuthMiddleware(userRepo, roleRepo, permissionRepo, modelPermissionRepo)

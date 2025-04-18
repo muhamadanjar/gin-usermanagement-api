@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"strings"
 	"time"
 	"usermanagement-api/domain/entities"
 	"usermanagement-api/domain/repositories"
@@ -25,17 +26,20 @@ type AuthUseCase interface {
 type authUseCase struct {
 	userRepo            repositories.UserRepository
 	roleRepo            repositories.RoleRepository
+	menuRepo            repositories.MenuRepository
 	modelPermissionRepo repositories.ModelPermissionRepository
 }
 
 func NewAuthUseCase(
 	userRepo repositories.UserRepository,
 	roleRepo repositories.RoleRepository,
+	menuRepo repositories.MenuRepository,
 	modelPermissionRepo repositories.ModelPermissionRepository,
 ) AuthUseCase {
 	return &authUseCase{
 		userRepo:            userRepo,
 		roleRepo:            roleRepo,
+		menuRepo:            menuRepo,
 		modelPermissionRepo: modelPermissionRepo,
 	}
 }
@@ -244,6 +248,26 @@ func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoRes
 		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}
 
+	// Map roles
+	if len(user.Roles) > 0 {
+		for _, role := range user.Roles {
+			userResp.Roles = append(userResp.Roles, dto.RoleSimple{
+				ID:   role.ID,
+				Name: role.Name,
+			})
+
+			// Check if user has superadmin role
+			if strings.ToLower(role.Name) == "superadmin" {
+				userResp.IsSuperuser = true
+			}
+		}
+	}
+
+	privileges, err := uc.getPrivilegesForUser(user.ID)
+	if err == nil && len(privileges) > 0 {
+		userResp.Privileges = privileges
+	}
+
 	return &dto.AuthInfoResponse{
 		User: *userResp,
 		Auth: dto.AuthResponse{
@@ -251,4 +275,71 @@ func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoRes
 			Type:        "Bearer",
 		},
 	}, nil
+}
+
+func (uc *authUseCase) getPrivilegesForUser(userID uuid.UUID) ([]dto.MenuResponse, error) {
+	// This would need to be implemented based on your menu repository and how
+	// privileges are associated with users (through roles, etc.)
+
+	// For example:
+	roles, err := uc.roleRepo.FindRolesByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all menu IDs accessible by these roles
+	var menuIDs []uuid.UUID
+	for _, role := range roles {
+		// This assumes you have a way to get menu IDs by role
+		// You might need to add this method to your repository
+
+		roleMenus, err := uc.menuRepo.FindMenusByRoleID(role.ID)
+		if err != nil {
+			continue
+		}
+
+		for _, menu := range roleMenus {
+			menuIDs = append(menuIDs, menu.ID)
+		}
+	}
+
+	// Remove duplicates
+	uniqueMenuIDs := make(map[uuid.UUID]bool)
+	for _, id := range menuIDs {
+		uniqueMenuIDs[id] = true
+	}
+
+	// Get menu details
+	var privileges []dto.MenuResponse
+	for id := range uniqueMenuIDs {
+		menu, err := uc.menuRepo.FindByID(id)
+		if err != nil {
+			continue
+		}
+
+		// Map to MenuResponse
+		privileges = append(privileges, dto.MenuResponse{
+			ID:        menu.ID,
+			Name:      menu.Name,
+			Url:       menu.Url,
+			Icon:      menu.Icon,
+			ParentID:  menu.ParentID,
+			IsActive:  menu.IsActive,
+			IsVisible: menu.IsVisible, // You might want to add this field to your menu entity
+			Sequence:  menu.Sequence,  // Assuming Order corresponds to Sequence
+			CreatedAt: menu.CreatedAt.Format(time.RFC3339),
+			// UpdatedAt: formatTimePointer(menu.UpdatedAt),
+			// DeletedAt: formatTimePointer(menu.DeletedAt.Time),
+		})
+	}
+
+	return privileges, nil
+}
+
+func formatTimePointer(t time.Time) *string {
+	if t.IsZero() {
+		return nil
+	}
+	formatted := t.Format(time.RFC3339)
+	return &formatted
 }

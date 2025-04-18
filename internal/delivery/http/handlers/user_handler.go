@@ -191,13 +191,13 @@ func (h *UserHandler) AssignRoles(c *gin.Context) {
 		return
 	}
 
-	var req dto.AssignPermissionsRequest
+	var req dto.AssignRolesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	resp, err := h.userUseCase.AssignRoles(id, req.PermissionIDs)
+	resp, err := h.userUseCase.AssignRoles(id, req.RoleIDs)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
