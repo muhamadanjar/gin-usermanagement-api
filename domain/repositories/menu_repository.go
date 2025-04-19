@@ -18,6 +18,7 @@ type MenuRepository interface {
 	Update(menu *entities.Menu) error
 	Delete(id uuid.UUID) error
 	FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, error)
+	MenuBySuperUser() ([]*entities.Menu, error)
 }
 
 type menuRepository struct {
@@ -116,8 +117,18 @@ func (r *menuRepository) FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, 
 	// You might need to modify this based on your actual database structure
 	err := r.db.Table("menus").
 		Joins("INNER JOIN model_permissions ON menus.id = CAST(model_permissions.model_id as uuid)").
-		Where("model_permissions.model_type = ? AND model_permissions.permission_id IN ? AND menus.is_visible = ?", "menu", permissionIDs, true).
-		Find(&menus).Error
+		Where("model_permissions.model_type = ? AND model_permissions.permission_id IN ? AND menus.is_visible = ? AND menus.is_active = ?", "menu", permissionIDs, true, true).
+		Order("menus.sequence ASC").Find(&menus).Error
 
 	return menus, err
+}
+
+func (r *menuRepository) MenuBySuperUser() ([]*entities.Menu, error) {
+	var menus []*entities.Menu
+	if err := r.db.Table("menus").
+		Joins("INNER JOIN model_permissions ON menus.id = CAST(model_permissions.model_id as uuid)").
+		Where("menus.is_active = ? AND menus.is_visible = ?", true, true).Order("menus.sequence asc").Find(&menus).Error; err != nil {
+		return nil, err
+	}
+	return menus, nil
 }

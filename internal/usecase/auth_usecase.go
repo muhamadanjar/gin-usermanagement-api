@@ -285,6 +285,32 @@ func (uc *authUseCase) getPrivilegesForUser(userID uuid.UUID) ([]dto.MenuRespons
 	// privileges are associated with users (through roles, etc.)
 
 	// For example:
+	user, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if user.IsSuperuser {
+		menu, err := uc.menuRepo.MenuBySuperUser()
+		if err != nil {
+			return nil, err
+		}
+		var privileges []dto.MenuResponse
+		for _, menu := range menu {
+			privileges = append(privileges, dto.MenuResponse{
+				ID:        menu.ID,
+				Name:      menu.Name,
+				Url:       menu.Url,
+				Icon:      menu.Icon,
+				ParentID:  menu.ParentID,
+				IsActive:  menu.IsActive,
+				IsVisible: menu.IsVisible, // You might want to add this field to your menu entity
+				Sequence:  menu.Sequence,  // Assuming Order corresponds to Sequence
+				CreatedAt: menu.CreatedAt.Format(time.RFC3339),
+			})
+		}
+		return privileges, nil
+
+	}
 	roles, err := uc.roleRepo.FindRolesByUserID(userID)
 	if err != nil {
 		return nil, err

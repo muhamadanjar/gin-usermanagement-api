@@ -23,7 +23,7 @@ type UpdateMenuRequest struct {
 
 type MenuResponse struct {
 	ID          uuid.UUID     `json:"id"`
-	Name        string        `json:"name"`
+	Name        string        `json:"title"`
 	Url         string        `json:"url"`
 	Icon        string        `json:"icon"`
 	Description string        `json:"description"`

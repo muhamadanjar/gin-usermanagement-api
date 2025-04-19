@@ -30,7 +30,7 @@ type UserResponse struct {
 	Name        string         `json:"name"`
 	IsActive    bool           `json:"is_active"`
 	IsSuperuser bool           `json:"is_superuser"`
-	Roles       []RoleSimple   `json:"roles,omitempty"`
+	Roles       []RoleSimple   `json:"roles"`
 	Privileges  []MenuResponse `json:"privileges,omitempty"`
 	AvatarUrl   string         `json:"avatar_url"`
 	CreatedAt   string         `json:"created_at"`

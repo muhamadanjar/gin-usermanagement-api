@@ -213,7 +213,11 @@ func (uc *userUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse 
 				Name: role.Name,
 			})
 		}
+	} else {
+		resp.Roles = []dto.RoleSimple{}
 	}
+	// Map privileges
+	resp.Privileges = []dto.MenuResponse{}
 
 	return resp
 }
