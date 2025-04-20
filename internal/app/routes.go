@@ -61,5 +61,6 @@ func (s *Server) setupRoutes() {
 		menus.GET("/:id", s.menuHandler.GetMenu)
 		menus.PUT("/:id", s.menuHandler.UpdateMenu)
 		menus.DELETE("/:id", s.menuHandler.DeleteMenu)
+		menus.GET("/permissions", s.menuHandler.GetMenuPermissions)
 	}
 }

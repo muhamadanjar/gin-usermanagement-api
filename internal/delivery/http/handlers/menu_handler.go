@@ -202,3 +202,16 @@ func (h *MenuHandler) DeleteMenu(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+func (h *MenuHandler) GetMenuPermissions(r *gin.Context) {
+	menu, err := h.menuUseCase.PermissionMenu()
+	if err != nil {
+		r.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	r.JSON(http.StatusOK, gin.H{
+		"data": menu,
+	})
+
+}

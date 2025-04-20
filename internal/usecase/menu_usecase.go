@@ -17,6 +17,7 @@ type MenuUseCase interface {
 	GetAllActive() ([]*dto.MenuResponse, error)
 	Update(id uuid.UUID, req *dto.UpdateMenuRequest) (*dto.MenuResponse, error)
 	Delete(id uuid.UUID) error
+	PermissionMenu() ([]*dto.MenuResponse, error)
 }
 
 type menuUseCase struct {
@@ -217,4 +218,18 @@ func (uc *menuUseCase) mapToMenuResponse(menu *entities.Menu) *dto.MenuResponse 
 	}
 
 	return resp
+}
+
+func (uc *menuUseCase) PermissionMenu() ([]*dto.MenuResponse, error) {
+	menus, _, err := uc.menuRepo.FindAll(1, 20)
+	if err != nil {
+		return nil, err
+	}
+	var response []*dto.MenuResponse
+	for _, menu := range menus {
+		response = append(response, uc.mapToMenuSimpleResponse(menu))
+	}
+
+	return response, nil
+
 }
