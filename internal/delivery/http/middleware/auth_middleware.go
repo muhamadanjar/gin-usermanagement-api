@@ -15,6 +15,7 @@ import (
 type AuthMiddleware interface {
 	RequireAuth() gin.HandlerFunc
 	RequirePermission(modelType string, modelID uuid.UUID, permissionName string) gin.HandlerFunc
+	RequireRole(roles ...string) gin.HandlerFunc
 }
 
 type authMiddleware struct {
@@ -174,6 +175,42 @@ func (m *authMiddleware) RequirePermission(modelType string, modelID uuid.UUID, 
 		}
 
 		if !hasPermission {
+			c.JSON(http.StatusForbidden, gin.H{"error": constants.ErrForbidden})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func (m *authMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user roles from context
+		userRoles, exists := c.Get(constants.UserRolesKey)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+			c.Abort()
+			return
+		}
+
+		// Check if user has any of the required roles
+		userRolesList := userRoles.([]*entities.Role)
+		hasRequiredRole := false
+
+		for _, userRole := range userRolesList {
+			for _, requiredRole := range roles {
+				if strings.ToLower(userRole.Name) == strings.ToLower(requiredRole) {
+					hasRequiredRole = true
+					break
+				}
+			}
+			if hasRequiredRole {
+				break
+			}
+		}
+
+		if !hasRequiredRole {
 			c.JSON(http.StatusForbidden, gin.H{"error": constants.ErrForbidden})
 			c.Abort()
 			return

@@ -21,7 +21,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// User routes
-	users := api.Group("/users")
+	users := api.Group("/users").Use(s.authMiddleware.RequireRole("admin"))
 	{
 		users.GET("", s.userHandler.GetAllUsers)
 		users.POST("", s.userHandler.CreateUser)
@@ -62,5 +62,22 @@ func (s *Server) setupRoutes() {
 		menus.PUT("/:id", s.menuHandler.UpdateMenu)
 		menus.DELETE("/:id", s.menuHandler.DeleteMenu)
 		menus.GET("/permissions", s.menuHandler.GetMenuPermissions)
+	}
+
+	userMeta := api.Group("/user-meta")
+	{
+		userMeta.POST("", s.userMetaHandler.CreateOrUpdate)
+		userMeta.GET("/:user_id", s.userMetaHandler.GetAllByUserID)
+		userMeta.GET("/:user_id/:key", s.userMetaHandler.GetByKey)
+		userMeta.DELETE("/:user_id/:key", s.userMetaHandler.Delete)
+	}
+
+	// Setting routes
+	settings := api.Group("/settings")
+	{
+		settings.POST("", s.settingHandler.CreateOrUpdate)
+		settings.GET("", s.settingHandler.GetAll)
+		settings.GET("/:key", s.settingHandler.GetByKey)
+		settings.DELETE("/:key", s.settingHandler.Delete)
 	}
 }

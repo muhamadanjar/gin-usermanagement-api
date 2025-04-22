@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"log"
 	"time"
 	"usermanagement-api/domain/entities"
 	"usermanagement-api/domain/repositories"
@@ -18,17 +19,20 @@ type UserUseCase interface {
 	Update(id uuid.UUID, req *dto.UpdateUserRequest) (*dto.UserResponse, error)
 	Delete(id uuid.UUID) error
 	AssignRoles(userID uuid.UUID, roleIDs []uuid.UUID) (*dto.UserResponse, error)
+	GetUserWithMeta(id uuid.UUID) (*dto.UserResponse, error)
 }
 
 type userUseCase struct {
-	userRepo repositories.UserRepository
-	roleRepo repositories.RoleRepository
+	userRepo     repositories.UserRepository
+	roleRepo     repositories.RoleRepository
+	userMetaRepo repositories.UserMetaRepository
 }
 
-func NewUserUseCase(userRepo repositories.UserRepository, roleRepo repositories.RoleRepository) UserUseCase {
+func NewUserUseCase(userRepo repositories.UserRepository, roleRepo repositories.RoleRepository, userMetaRepo repositories.UserMetaRepository) UserUseCase {
 	return &userUseCase{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
+		userRepo:     userRepo,
+		roleRepo:     roleRepo,
+		userMetaRepo: userMetaRepo,
 	}
 }
 
@@ -69,6 +73,20 @@ func (uc *userUseCase) Create(req *dto.CreateUserRequest) (*dto.UserResponse, er
 	// Save user
 	if err := uc.userRepo.Create(user); err != nil {
 		return nil, err
+	}
+
+	if len(req.MetaData) > 0 {
+		for key, value := range req.MetaData {
+			userMeta := &entities.UserMeta{
+				Key:    key,
+				Value:  value,
+				UserID: user.ID,
+			}
+			if err := uc.userMetaRepo.Create(userMeta); err != nil {
+				// Log error but don't fail the whole operation
+				log.Printf("Failed to create user meta %s: %v", key, err)
+			}
+		}
 	}
 
 	// Get user with roles
@@ -164,6 +182,38 @@ func (uc *userUseCase) Update(id uuid.UUID, req *dto.UpdateUserRequest) (*dto.Us
 		}
 	}
 
+	if req.MetaData != nil {
+		// Get existing meta
+		existingMeta, err := uc.userMetaRepo.GetAllByUserID(user.ID)
+		if err != nil {
+			log.Printf("Failed to get existing user meta: %v", err)
+		}
+
+		// Update or create meta
+		for key, value := range req.MetaData {
+			if existingMeta[key] != "" {
+				// Update existing meta
+				existingUserMeta, err := uc.userMetaRepo.FindByUserIDAndKey(user.ID, key)
+				if err == nil {
+					existingUserMeta.Value = value
+					if err := uc.userMetaRepo.Update(existingUserMeta); err != nil {
+						log.Printf("Failed to update user meta %s: %v", key, err)
+					}
+				}
+			} else {
+				// Create new meta
+				userMeta := &entities.UserMeta{
+					Key:    key,
+					Value:  value,
+					UserID: user.ID,
+				}
+				if err := uc.userMetaRepo.Create(userMeta); err != nil {
+					log.Printf("Failed to create user meta %s: %v", key, err)
+				}
+			}
+		}
+	}
+
 	return uc.mapToUserResponse(user), nil
 }
 
@@ -220,4 +270,23 @@ func (uc *userUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse 
 	resp.Privileges = []dto.MenuResponse{}
 
 	return resp
+}
+
+func (uc *userUseCase) GetUserWithMeta(id uuid.UUID) (*dto.UserResponse, error) {
+	user, err := uc.userRepo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user meta
+	userMeta, err := uc.userMetaRepo.GetAllByUserID(user.ID)
+	if err != nil {
+		log.Printf("Failed to get user meta: %v", err)
+		userMeta = make(map[string]string) // Empty map if error
+	}
+
+	response := uc.mapToUserResponse(user)
+	response.MetaData = userMeta
+
+	return response, nil
 }

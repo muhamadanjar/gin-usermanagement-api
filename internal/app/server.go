@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/delivery/http/handlers"
 	"usermanagement-api/internal/delivery/http/middleware"
 	"usermanagement-api/internal/usecase"
+	"usermanagement-api/pkg/cache"
 	"usermanagement-api/pkg/database"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +32,9 @@ type Server struct {
 	authHandler       *handlers.AuthHandler
 	authMiddleware    middleware.AuthMiddleware
 	corsMiddleware    middleware.CORSMiddleware
+	userMetaHandler   *handlers.UserMetaHandler
+	settingHandler    *handlers.SettingHandler
+	redisCache        cache.Cache
 }
 
 func NewServer() *Server {
@@ -41,6 +46,15 @@ func (s *Server) Initialize() error {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found")
 	}
+
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisDB, _ := strconv.Atoi(os.Getenv("REDIS_DB"))
+
+	s.redisCache = cache.NewRedisCache(redisAddr, redisPassword, redisDB)
 
 	// Connect to database
 	s.db = database.ConnectDB()
@@ -54,13 +68,17 @@ func (s *Server) Initialize() error {
 	permissionRepo := repositories.NewPermissionRepository(s.db)
 	menuRepo := repositories.NewMenuRepository(s.db)
 	modelPermissionRepo := repositories.NewModelPermissionRepository(s.db)
+	userMetaRepo := repositories.NewUserMetaRepository(s.db)
+	settingRepo := repositories.NewSettingRepository(s.db)
 
 	// Initialize use cases
-	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo)
+	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, userMetaRepo)
 	roleUseCase := usecase.NewRoleUseCase(roleRepo, permissionRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
 	menuUseCase := usecase.NewMenuUseCase(menuRepo)
 	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo)
+	userMetaUseCase := usecase.NewUserMetaUseCase(userMetaRepo, s.redisCache)
+	settingUseCase := usecase.NewSettingUseCase(settingRepo, s.redisCache)
 
 	// Initialize middleware
 	s.authMiddleware = middleware.NewAuthMiddleware(userRepo, roleRepo, permissionRepo, modelPermissionRepo)
@@ -72,6 +90,8 @@ func (s *Server) Initialize() error {
 	s.permissionHandler = handlers.NewPermissionHandler(permissionUseCase)
 	s.menuHandler = handlers.NewMenuHandler(menuUseCase)
 	s.authHandler = handlers.NewAuthHandler(authUseCase)
+	s.userMetaHandler = handlers.NewUserMetaHandler(userMetaUseCase)
+	s.settingHandler = handlers.NewSettingHandler(settingUseCase)
 
 	// Initialize router
 	s.router = gin.Default()
