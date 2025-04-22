@@ -42,3 +42,8 @@ type ModelPermissionResponse struct {
 	CreatedAt    string           `json:"created_at"`
 	UpdatedAt    string           `json:"updated_at"`
 }
+
+type CreateMetaDataRequest struct {
+	Key   string `json:"key" binding:"required"`
+	Value string `json:"value" binding:"required"`
+}

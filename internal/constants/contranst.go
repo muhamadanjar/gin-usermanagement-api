@@ -19,6 +19,8 @@ const (
 	ErrForbidden          = "forbidden"
 )
 
+const SettingsCacheKey = "global_settings"
+
 // ModelTypes for ModelPermission
 const (
 	ModelTypeRole = "role"

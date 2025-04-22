@@ -16,6 +16,7 @@ type AuthMiddleware interface {
 	RequireAuth() gin.HandlerFunc
 	RequirePermission(modelType string, modelID uuid.UUID, permissionName string) gin.HandlerFunc
 	RequireRole(roles ...string) gin.HandlerFunc
+	RequireSuperuser() gin.HandlerFunc
 }
 
 type authMiddleware struct {
@@ -258,6 +259,29 @@ func (m *authMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 
 		if !hasRequiredRole {
 			c.JSON(http.StatusForbidden, gin.H{"error": constants.ErrForbidden})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func (m *authMiddleware) RequireSuperuser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user from context
+		userInterface, exists := c.Get(constants.UserIDKey)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+			c.Abort()
+			return
+		}
+
+		user := userInterface.(*entities.User)
+
+		// Check if user is superuser
+		if !user.IsSuperuser {
+			c.JSON(http.StatusForbidden, gin.H{"error": "superuser access required"})
 			c.Abort()
 			return
 		}

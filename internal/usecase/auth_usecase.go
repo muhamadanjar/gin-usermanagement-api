@@ -11,6 +11,7 @@ import (
 	"usermanagement-api/pkg/utils"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type AuthUseCase interface {
@@ -21,12 +22,14 @@ type AuthUseCase interface {
 	GetModelPermissions(modelType string, modelID uuid.UUID) ([]*dto.ModelPermissionResponse, error)
 	CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error)
 	GetUser(userID uuid.UUID, token string) (*dto.AuthInfoResponse, error)
+	CreateMetaData(userID uuid.UUID, req *dto.CreateMetaDataRequest) (any, error)
 }
 
 type authUseCase struct {
 	userRepo            repositories.UserRepository
 	roleRepo            repositories.RoleRepository
 	menuRepo            repositories.MenuRepository
+	userMetaRepo        repositories.UserMetaRepository
 	modelPermissionRepo repositories.ModelPermissionRepository
 }
 
@@ -35,11 +38,13 @@ func NewAuthUseCase(
 	roleRepo repositories.RoleRepository,
 	menuRepo repositories.MenuRepository,
 	modelPermissionRepo repositories.ModelPermissionRepository,
+	userMetaRepo repositories.UserMetaRepository,
 ) AuthUseCase {
 	return &authUseCase{
 		userRepo:            userRepo,
 		roleRepo:            roleRepo,
 		menuRepo:            menuRepo,
+		userMetaRepo:        userMetaRepo,
 		modelPermissionRepo: modelPermissionRepo,
 	}
 }
@@ -258,10 +263,6 @@ func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoRes
 				Name: role.Name,
 			})
 
-			// // Check if user has superadmin role
-			// if strings.ToLower(role.Name) == "superadmin" {
-			// 	userResp.IsSuperuser = true
-			// }
 		}
 	}
 
@@ -364,6 +365,34 @@ func (uc *authUseCase) getPrivilegesForUser(userID uuid.UUID) ([]dto.MenuRespons
 	}
 
 	return privileges, nil
+}
+
+func (uc *authUseCase) CreateMetaData(userID uuid.UUID, req *dto.CreateMetaDataRequest) (any, error) {
+
+	existingMeta, err := uc.userMetaRepo.FindByUserIDAndKey(userID, req.Key)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	if existingMeta != nil {
+		// Update existing
+		existingMeta.Value = req.Value
+		if err := uc.userMetaRepo.Update(existingMeta); err != nil {
+			return nil, err
+		}
+	} else {
+		// Create new
+		userMeta := &entities.UserMeta{
+			Key:    req.Key,
+			Value:  req.Value,
+			UserID: userID,
+		}
+		if err := uc.userMetaRepo.Create(userMeta); err != nil {
+			return nil, err
+		}
+	}
+
+	return existingMeta, nil
 }
 
 func formatTimePointer(t time.Time) *string {

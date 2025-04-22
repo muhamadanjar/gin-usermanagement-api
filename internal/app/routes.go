@@ -18,6 +18,7 @@ func (s *Server) setupRoutes() {
 		auth.POST("/model-permissions", s.authHandler.CreateModelPermission)
 		auth.GET("/model-permissions", s.authHandler.GetModelPermissions)
 		auth.GET("/info", s.authHandler.GetUser)
+		auth.POST("/metas", s.authHandler.CreateMeta)
 	}
 
 	// User routes

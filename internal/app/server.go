@@ -76,7 +76,7 @@ func (s *Server) Initialize() error {
 	roleUseCase := usecase.NewRoleUseCase(roleRepo, permissionRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
 	menuUseCase := usecase.NewMenuUseCase(menuRepo)
-	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo)
+	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo, userMetaRepo)
 	userMetaUseCase := usecase.NewUserMetaUseCase(userMetaRepo, s.redisCache)
 	settingUseCase := usecase.NewSettingUseCase(settingRepo, s.redisCache)
 
