@@ -122,10 +122,29 @@ func (m *authMiddleware) RequireAuth() gin.HandlerFunc {
 func (m *authMiddleware) RequirePermission(modelType string, modelID uuid.UUID, permissionName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get user ID from context
-		_, exists := c.Get(constants.UserIDKey)
+		userID, exists := c.Get(constants.UserIDKey)
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
 			c.Abort()
+			return
+		}
+
+		userUUID, ok := userID.(uuid.UUID)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+			c.Abort()
+			return
+		}
+		user, err := m.userRepo.FindByID(userUUID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+			c.Abort()
+			return
+		}
+
+		// If user is superuser, allow access immediately
+		if user.IsSuperuser {
+			c.Next()
 			return
 		}
 
@@ -186,6 +205,33 @@ func (m *authMiddleware) RequirePermission(modelType string, modelID uuid.UUID, 
 
 func (m *authMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		userID, exists := c.Get(constants.UserIDKey)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+			c.Abort()
+			return
+		}
+
+		userUUID, ok := userID.(uuid.UUID)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+			c.Abort()
+			return
+		}
+
+		user, err := m.userRepo.FindByID(userUUID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+			c.Abort()
+			return
+		}
+
+		// If user is superuser, allow access immediately
+		if user.IsSuperuser {
+			c.Next()
+			return
+		}
+
 		// Get user roles from context
 		userRoles, exists := c.Get(constants.UserRolesKey)
 		if !exists {

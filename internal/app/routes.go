@@ -73,7 +73,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Setting routes
-	settings := api.Group("/settings")
+	settings := api.Group("/settings").Use(s.authMiddleware.RequireRole("admin"))
 	{
 		settings.POST("", s.settingHandler.CreateOrUpdate)
 		settings.GET("", s.settingHandler.GetAll)
