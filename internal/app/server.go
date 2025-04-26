@@ -15,6 +15,7 @@ import (
 	"usermanagement-api/internal/usecase"
 	"usermanagement-api/pkg/cache"
 	"usermanagement-api/pkg/database"
+	"usermanagement-api/pkg/firebase"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -22,19 +23,21 @@ import (
 )
 
 type Server struct {
-	router            *gin.Engine
-	db                *gorm.DB
-	httpServer        *http.Server
-	userHandler       *handlers.UserHandler
-	roleHandler       *handlers.RoleHandler
-	permissionHandler *handlers.PermissionHandler
-	menuHandler       *handlers.MenuHandler
-	authHandler       *handlers.AuthHandler
-	authMiddleware    middleware.AuthMiddleware
-	corsMiddleware    middleware.CORSMiddleware
-	userMetaHandler   *handlers.UserMetaHandler
-	settingHandler    *handlers.SettingHandler
-	redisCache        cache.Cache
+	router              *gin.Engine
+	db                  *gorm.DB
+	httpServer          *http.Server
+	userHandler         *handlers.UserHandler
+	roleHandler         *handlers.RoleHandler
+	permissionHandler   *handlers.PermissionHandler
+	menuHandler         *handlers.MenuHandler
+	authHandler         *handlers.AuthHandler
+	authMiddleware      middleware.AuthMiddleware
+	corsMiddleware      middleware.CORSMiddleware
+	userMetaHandler     *handlers.UserMetaHandler
+	settingHandler      *handlers.SettingHandler
+	notificationHandler *handlers.NotificationHandler
+	redisCache          cache.Cache
+	fcmClient           *firebase.FCMClient
 }
 
 func NewServer() *Server {
@@ -56,6 +59,14 @@ func (s *Server) Initialize() error {
 
 	s.redisCache = cache.NewRedisCache(redisAddr, redisPassword, redisDB)
 
+	// Initialize Firebase Cloud Messaging client
+	fcmCredentialsFile := os.Getenv("FIREBASE_CREDENTIALS_FILE")
+	fcmClient, err := firebase.NewFCMClient(fcmCredentialsFile)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize FCM client: %v", err)
+		// Continue without FCM - this allows the app to run even without FCM configured
+	}
+
 	// Connect to database
 	s.db = database.ConnectDB()
 
@@ -76,9 +87,10 @@ func (s *Server) Initialize() error {
 	roleUseCase := usecase.NewRoleUseCase(roleRepo, permissionRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
 	menuUseCase := usecase.NewMenuUseCase(menuRepo)
-	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo, userMetaRepo)
+	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo, userMetaRepo, fcmClient)
 	userMetaUseCase := usecase.NewUserMetaUseCase(userMetaRepo, s.redisCache)
 	settingUseCase := usecase.NewSettingUseCase(settingRepo, s.redisCache)
+	notificationUseCase := usecase.NewNotificationUseCase(userMetaRepo, fcmClient)
 
 	// Initialize middleware
 	s.authMiddleware = middleware.NewAuthMiddleware(userRepo, roleRepo, permissionRepo, modelPermissionRepo)
@@ -92,6 +104,7 @@ func (s *Server) Initialize() error {
 	s.authHandler = handlers.NewAuthHandler(authUseCase)
 	s.userMetaHandler = handlers.NewUserMetaHandler(userMetaUseCase)
 	s.settingHandler = handlers.NewSettingHandler(settingUseCase)
+	s.notificationHandler = handlers.NewNotificationHandler(notificationUseCase)
 
 	// Initialize router
 	s.router = gin.Default()

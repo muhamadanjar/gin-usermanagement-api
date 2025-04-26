@@ -9,6 +9,12 @@ services:
     #   - ./:/app
     environment:
       - GIN_MODE=release
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=xcWI3128
+      - DB_NAME=go_usermanagement
+      - DB_SSLMODE=disable
     networks:
       - shared-network
     restart: unless-stopped

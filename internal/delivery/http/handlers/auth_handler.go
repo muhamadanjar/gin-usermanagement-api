@@ -226,3 +226,57 @@ func (h *AuthHandler) CreateMeta(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"data": resp, "message": "Create Meta Success"})
 }
+
+// func (h *AuthHandler) SendToMe(c *gin.Context) {
+// 	var req dto.SendNotificationRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	// Get authenticated user
+// 	user, exists := c.Get(constants.UserIDKey)
+// 	if !exists {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+// 		return
+// 	}
+
+// 	// Send notification to authenticated user
+// 	response, err := h.authUseCase.SendToUser(user.(*entities.User).ID, req.Title, req.Body, req.Data)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, response)
+// }
+
+// func (h *AuthHandler) SendNotification(c *gin.Context) {
+// 	var req dto.SendNotificationRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	var response *dto.NotificationResponse
+// 	var err error
+
+// 	// Send based on the provided parameters
+// 	if req.Topic != "" {
+// 		// Send to topic
+// 		response, err = h.authUseCase.SendToTopic(req.Topic, req.Title, req.Body, req.Data)
+// 	} else if len(req.UserIDs) > 0 {
+// 		// Send to specific users
+// 		response, err = h.authUseCase.SendToUsers(req.UserIDs, req.Title, req.Body, req.Data)
+// 	} else {
+// 		// Send to all
+// 		response, err = h.authUseCase.SendToAll(req.Title, req.Body, req.Data)
+// 	}
+
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, response)
+// }

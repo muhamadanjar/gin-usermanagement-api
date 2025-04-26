@@ -8,6 +8,7 @@ import (
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/dto"
 	"usermanagement-api/pkg/auth"
+	"usermanagement-api/pkg/firebase"
 	"usermanagement-api/pkg/utils"
 
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ type AuthUseCase interface {
 	CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error)
 	GetUser(userID uuid.UUID, token string) (*dto.AuthInfoResponse, error)
 	CreateMetaData(userID uuid.UUID, req *dto.CreateMetaDataRequest) (any, error)
+	// SendToUser(userID uuid.UUID, title string, body string, data map[string]string) (any, error)
 }
 
 type authUseCase struct {
@@ -31,6 +33,7 @@ type authUseCase struct {
 	menuRepo            repositories.MenuRepository
 	userMetaRepo        repositories.UserMetaRepository
 	modelPermissionRepo repositories.ModelPermissionRepository
+	fcmClient           firebase.FCMClient
 }
 
 func NewAuthUseCase(
@@ -39,6 +42,8 @@ func NewAuthUseCase(
 	menuRepo repositories.MenuRepository,
 	modelPermissionRepo repositories.ModelPermissionRepository,
 	userMetaRepo repositories.UserMetaRepository,
+	fcmClient firebase.FCMClient,
+
 ) AuthUseCase {
 	return &authUseCase{
 		userRepo:            userRepo,
@@ -46,6 +51,7 @@ func NewAuthUseCase(
 		menuRepo:            menuRepo,
 		userMetaRepo:        userMetaRepo,
 		modelPermissionRepo: modelPermissionRepo,
+		fcmClient:           fcmClient,
 	}
 }
 
@@ -67,14 +73,14 @@ func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, erro
 	}
 
 	// Generate JWT token
-	token, err := auth.GenerateToken(user.ID, user.Email)
+	token, err := auth.GenerateTokenPair(user.ID, user.Email)
 	if err != nil {
 		return nil, err
 	}
 
 	authResp := &dto.AuthResponse{
-		AccessToken:  token,
-		RefreshToken: "",
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
 		Type:         "Bearer",
 	}
 
@@ -394,6 +400,27 @@ func (uc *authUseCase) CreateMetaData(userID uuid.UUID, req *dto.CreateMetaDataR
 
 	return existingMeta, nil
 }
+
+// func (uc *authUseCase) SendToUser(userID uuid.UUID, title string, body string, data map[string]string) (any, error) {
+// 	// Get user device tokens
+// 	userMeta, err := uc.userMetaRepo.FindByUserIDAndKey(userID, "device_token")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	if userMeta == nil {
+// 		return nil, errors.New("no device token found for user")
+// 	}
+
+// 	// Send notification
+// 	response, err := uc.fcmClient.s(userMeta.Value, title, body, data)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return response, nil
+
+// }
 
 func formatTimePointer(t time.Time) *string {
 	if t.IsZero() {

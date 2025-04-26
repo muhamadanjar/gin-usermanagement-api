@@ -47,3 +47,18 @@ type CreateMetaDataRequest struct {
 	Key   string `json:"key" binding:"required"`
 	Value string `json:"value" binding:"required"`
 }
+
+type SendNotificationRequest struct {
+	Title   string            `json:"title" binding:"required"`
+	Body    string            `json:"body" binding:"required"`
+	Data    map[string]string `json:"data"`
+	UserIDs []uuid.UUID       `json:"user_ids,omitempty"`
+	Topic   string            `json:"topic,omitempty"`
+}
+
+type NotificationResponse struct {
+	Success      bool   `json:"success"`
+	SuccessCount int    `json:"success_count,omitempty"`
+	MessageID    string `json:"message_id,omitempty"`
+	Error        string `json:"error,omitempty"`
+}

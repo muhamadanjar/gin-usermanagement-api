@@ -61,7 +61,7 @@ func (m *authMiddleware) RequireAuth() gin.HandlerFunc {
 		tokenString := parts[1]
 
 		// Validate the token
-		claims, err := auth.ValidateToken(tokenString)
+		claims, err := auth.ValidateAccessToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrTokenInvalid})
 			c.Abort()
@@ -247,7 +247,7 @@ func (m *authMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 
 		for _, userRole := range userRolesList {
 			for _, requiredRole := range roles {
-				if strings.ToLower(userRole.Name) == strings.ToLower(requiredRole) {
+				if strings.EqualFold(userRole.Name, requiredRole) {
 					hasRequiredRole = true
 					break
 				}

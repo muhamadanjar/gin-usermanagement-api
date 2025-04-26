@@ -12,6 +12,7 @@ type UserMetaRepository interface {
 	Create(userMeta *entities.UserMeta) error
 	FindByUserID(userID uuid.UUID) ([]*entities.UserMeta, error)
 	FindByUserIDAndKey(userID uuid.UUID, key string) (*entities.UserMeta, error)
+	FindByKey(key string) ([]*entities.UserMeta, error)
 	Update(userMeta *entities.UserMeta) error
 	Delete(id uint) error
 	GetAllByUserID(userID uuid.UUID) (map[string]string, error)
@@ -64,4 +65,13 @@ func (r *userMetaRepository) GetAllByUserID(userID uuid.UUID) (map[string]string
 		result[meta.Key] = meta.Value
 	}
 	return result, nil
+}
+
+func (r *userMetaRepository) FindByKey(key string) ([]*entities.UserMeta, error) {
+	var userMetas []*entities.UserMeta
+	if err := r.db.Where("key = ?", key).Find(&userMetas).Error; err != nil {
+		return nil, err
+	}
+	return userMetas, nil
+
 }

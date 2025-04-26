@@ -81,4 +81,17 @@ func (s *Server) setupRoutes() {
 		settings.GET("/:key", s.settingHandler.GetByKey)
 		settings.DELETE("/:key", s.settingHandler.Delete)
 	}
+
+	notifications := api.Group("/notifications")
+	notifications.Use(s.authMiddleware.RequireAuth())
+	{
+		notifications.POST("/send-to-me", s.notificationHandler.SendToMe)
+
+		// Admin/Superuser only routes
+		adminNotif := notifications.Group("")
+		adminNotif.Use(s.authMiddleware.RequireRole("admin", "superuser"))
+		{
+			adminNotif.POST("/send", s.notificationHandler.SendNotification)
+		}
+	}
 }

@@ -1,7 +1,7 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23 AS builder
 
 # Instal dependensi build yang diperlukan saja
-RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git
 
 WORKDIR /build
 
@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 FROM gcr.io/distroless/static-debian12
 
 # Metadata
-LABEL maintainer="Your Name <your.email@example.com>"
+LABEL maintainer="Muhamad Anjar <arvanria@gmail.com>"
 LABEL version="1.0.0"
 LABEL description="Lightweight Go application with Gin framework"
 
