@@ -1,5 +1,9 @@
 FROM golang:1.23 AS builder
 
+ENV GOPROXY=direct
+ENV GODEBUG=netdns=go
+
+
 # Instal dependensi build yang diperlukan saja
 RUN apt-get update && apt-get install -y git
 
