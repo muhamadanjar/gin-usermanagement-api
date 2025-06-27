@@ -227,6 +227,27 @@ func (h *AuthHandler) CreateMeta(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": resp, "message": "Create Meta Success"})
 }
 
+func (h *AuthHandler) GetUserMeta(c *gin.Context) {
+	userID, exists := c.Get(constants.UserIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
+		return
+	}
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid userID format"})
+		return
+	}
+
+	metaData, err := h.authUseCase.GetMetaData(userUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, metaData)
+}
+
 // func (h *AuthHandler) SendToMe(c *gin.Context) {
 // 	var req dto.SendNotificationRequest
 // 	if err := c.ShouldBindJSON(&req); err != nil {

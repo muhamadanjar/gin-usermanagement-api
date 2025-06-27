@@ -24,6 +24,7 @@ type AuthUseCase interface {
 	CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error)
 	GetUser(userID uuid.UUID, token string) (*dto.AuthInfoResponse, error)
 	CreateMetaData(userID uuid.UUID, req *dto.CreateMetaDataRequest) (any, error)
+	GetMetaData(userID uuid.UUID) ([]*dto.UserMetaResponse, error)
 	// SendToUser(userID uuid.UUID, title string, body string, data map[string]string) (any, error)
 }
 
@@ -399,6 +400,23 @@ func (uc *authUseCase) CreateMetaData(userID uuid.UUID, req *dto.CreateMetaDataR
 	}
 
 	return existingMeta, nil
+}
+
+func (uc *authUseCase) GetMetaData(userID uuid.UUID) ([]*dto.UserMetaResponse, error) {
+	metas, err := uc.userMetaRepo.FindByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	var response []*dto.UserMetaResponse
+	for _, meta := range metas {
+		response = append(response, &dto.UserMetaResponse{
+			ID:     meta.ID,
+			Key:    meta.Key,
+			Value:  meta.Value,
+			UserID: meta.UserID,
+		})
+	}
+	return response, nil
 }
 
 // func (uc *authUseCase) SendToUser(userID uuid.UUID, title string, body string, data map[string]string) (any, error) {
