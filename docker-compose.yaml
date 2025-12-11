@@ -7,14 +7,8 @@ services:
       - "8080:8080"
     # volumes:
     #   - ./:/app
-    environment:
-      - GIN_MODE=release
-      - DB_HOST=host.docker.internal
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=xcWI3128
-      - DB_NAME=go_usermanagement
-      - DB_SSLMODE=disable
+    env_file:
+      - .env
     # For Linux users, uncomment the following line to use host networking
     extra_hosts:
       - "host.docker.internal:host-gateway"

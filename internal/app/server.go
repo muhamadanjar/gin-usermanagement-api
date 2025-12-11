@@ -2,120 +2,46 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
-	"usermanagement-api/domain/repositories"
-	"usermanagement-api/internal/delivery/http/handlers"
-	"usermanagement-api/internal/delivery/http/middleware"
-	"usermanagement-api/internal/usecase"
-	"usermanagement-api/pkg/cache"
-	"usermanagement-api/pkg/database"
-	"usermanagement-api/pkg/firebase"
+	"usermanagement-api/internal/container"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"gorm.io/gorm"
 )
 
 type Server struct {
-	router              *gin.Engine
-	db                  *gorm.DB
-	httpServer          *http.Server
-	userHandler         *handlers.UserHandler
-	roleHandler         *handlers.RoleHandler
-	permissionHandler   *handlers.PermissionHandler
-	menuHandler         *handlers.MenuHandler
-	authHandler         *handlers.AuthHandler
-	authMiddleware      middleware.AuthMiddleware
-	corsMiddleware      middleware.CORSMiddleware
-	userMetaHandler     *handlers.UserMetaHandler
-	settingHandler      *handlers.SettingHandler
-	notificationHandler *handlers.NotificationHandler
-	redisCache          cache.Cache
-	fcmClient           *firebase.FCMClient
+	router            *gin.Engine
+	httpServer        *http.Server
+	appContainer      *AppContainer
+	businessContainer *container.BusinessContainer
 }
 
-func NewServer() *Server {
-	return &Server{}
+// NewServer creates a new server instance with containers
+func NewServer(appContainer *AppContainer, businessContainer *container.BusinessContainer) *Server {
+	return &Server{
+		appContainer:      appContainer,
+		businessContainer: businessContainer,
+	}
 }
 
+// Initialize sets up the router and routes
 func (s *Server) Initialize() error {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found")
-	}
-
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-	redisDB, _ := strconv.Atoi(os.Getenv("REDIS_DB"))
-
-	s.redisCache = cache.NewRedisCache(redisAddr, redisPassword, redisDB)
-
-	// Initialize Firebase Cloud Messaging client
-	fcmCredentialsFile := os.Getenv("FIREBASE_CREDENTIALS_FILE")
-	fcmClient, err := firebase.NewFCMClient(fcmCredentialsFile)
-	if err != nil {
-		log.Printf("Warning: Failed to initialize FCM client: %v", err)
-		// Continue without FCM - this allows the app to run even without FCM configured
-	}
-
-	// Connect to database
-	s.db = database.ConnectDB()
-
-	// Migrate database
-	database.MigrateDB(s.db)
-
-	// Initialize repositories
-	userRepo := repositories.NewUserRepository(s.db)
-	roleRepo := repositories.NewRoleRepository(s.db)
-	permissionRepo := repositories.NewPermissionRepository(s.db)
-	menuRepo := repositories.NewMenuRepository(s.db)
-	modelPermissionRepo := repositories.NewModelPermissionRepository(s.db)
-	userMetaRepo := repositories.NewUserMetaRepository(s.db)
-	settingRepo := repositories.NewSettingRepository(s.db)
-
-	// Initialize use cases
-	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, userMetaRepo)
-	roleUseCase := usecase.NewRoleUseCase(roleRepo, permissionRepo)
-	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
-	menuUseCase := usecase.NewMenuUseCase(menuRepo)
-	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo, userMetaRepo, fcmClient)
-	userMetaUseCase := usecase.NewUserMetaUseCase(userMetaRepo, s.redisCache)
-	settingUseCase := usecase.NewSettingUseCase(settingRepo, s.redisCache)
-	notificationUseCase := usecase.NewNotificationUseCase(userMetaRepo, fcmClient)
-
-	// Initialize middleware
-	s.authMiddleware = middleware.NewAuthMiddleware(userRepo, roleRepo, permissionRepo, modelPermissionRepo)
-	s.corsMiddleware = middleware.NewCORSMiddleware()
-
-	// Initialize handlers
-	s.userHandler = handlers.NewUserHandler(userUseCase)
-	s.roleHandler = handlers.NewRoleHandler(roleUseCase)
-	s.permissionHandler = handlers.NewPermissionHandler(permissionUseCase)
-	s.menuHandler = handlers.NewMenuHandler(menuUseCase)
-	s.authHandler = handlers.NewAuthHandler(authUseCase)
-	s.userMetaHandler = handlers.NewUserMetaHandler(userMetaUseCase)
-	s.settingHandler = handlers.NewSettingHandler(settingUseCase)
-	s.notificationHandler = handlers.NewNotificationHandler(notificationUseCase)
-
 	// Initialize router
 	s.router = gin.Default()
-	s.router.Use(s.corsMiddleware.SetupCORS())
+	s.router.Use(s.businessContainer.CORSMiddleware.SetupCORS())
 
 	// Setup routes
 	s.setupRoutes()
 
-	// Setup HTTP server
+	// Setup HTTP server using config from AppContainer
+	addr := fmt.Sprintf("%s:%d", s.appContainer.Config.Server.Host, s.appContainer.Config.Server.Port)
 	s.httpServer = &http.Server{
-		Addr:    ":8080",
+		Addr:    addr,
 		Handler: s.router,
 	}
 
@@ -152,7 +78,8 @@ func (s *Server) Run() error {
 	}()
 
 	// Run the server
-	log.Println("Server is running on :8080")
+	addr := fmt.Sprintf("%s:%d", s.appContainer.Config.Server.Host, s.appContainer.Config.Server.Port)
+	log.Printf("Server is running on %s", addr)
 	err := s.httpServer.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		return err

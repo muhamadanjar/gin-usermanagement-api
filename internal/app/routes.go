@@ -1,98 +1,100 @@
 package app
 
 func (s *Server) setupRoutes() {
+	bc := s.businessContainer
+
 	// Public routes
 	public := s.router.Group("/")
 
-	public.POST("/auth/login", s.authHandler.Login)
-	public.POST("/auth/register", s.authHandler.Register)
+	public.POST("/auth/login", bc.AuthHandler.Login)
+	public.POST("/auth/register", bc.AuthHandler.Register)
 
 	// Protected routes
 	api := s.router.Group("/")
-	api.Use(s.authMiddleware.RequireAuth())
+	api.Use(bc.AuthMiddleware.RequireAuth())
 
 	// Auth routes
 	auth := api.Group("/auth")
 	{
-		auth.GET("/permissions", s.authHandler.GetUserPermissions)
-		auth.POST("/model-permissions", s.authHandler.CreateModelPermission)
-		auth.GET("/model-permissions", s.authHandler.GetModelPermissions)
-		auth.GET("/info", s.authHandler.GetUser)
-		auth.POST("/metas", s.authHandler.CreateMeta)
-		auth.GET("/metas", s.authHandler.GetUserMeta)
+		auth.GET("/permissions", bc.AuthHandler.GetUserPermissions)
+		auth.POST("/model-permissions", bc.AuthHandler.CreateModelPermission)
+		auth.GET("/model-permissions", bc.AuthHandler.GetModelPermissions)
+		auth.GET("/info", bc.AuthHandler.GetUser)
+		auth.POST("/metas", bc.AuthHandler.CreateMeta)
+		auth.GET("/metas", bc.AuthHandler.GetUserMeta)
 	}
 
 	// User routes
-	users := api.Group("/users").Use(s.authMiddleware.RequireRole("admin"))
+	users := api.Group("/users").Use(bc.AuthMiddleware.RequireRole("admin"))
 	{
-		users.GET("", s.userHandler.GetAllUsers)
-		users.POST("", s.userHandler.CreateUser)
-		users.GET("/:id", s.userHandler.GetUser)
-		users.PUT("/:id", s.userHandler.UpdateUser)
-		users.DELETE("/:id", s.userHandler.DeleteUser)
-		users.POST("/:id/roles", s.userHandler.AssignRoles)
+		users.GET("", bc.UserHandler.GetAllUsers)
+		users.POST("", bc.UserHandler.CreateUser)
+		users.GET("/:id", bc.UserHandler.GetUser)
+		users.PUT("/:id", bc.UserHandler.UpdateUser)
+		users.DELETE("/:id", bc.UserHandler.DeleteUser)
+		users.POST("/:id/roles", bc.UserHandler.AssignRoles)
 	}
 
 	// Role routes
 	roles := api.Group("/roles")
 	{
-		roles.GET("", s.roleHandler.GetAllRoles)
-		roles.POST("", s.roleHandler.CreateRole)
-		roles.GET("/:id", s.roleHandler.GetRole)
-		roles.PUT("/:id", s.roleHandler.UpdateRole)
-		roles.DELETE("/:id", s.roleHandler.DeleteRole)
-		roles.POST("/:id/permissions", s.roleHandler.AssignPermissions)
+		roles.GET("", bc.RoleHandler.GetAllRoles)
+		roles.POST("", bc.RoleHandler.CreateRole)
+		roles.GET("/:id", bc.RoleHandler.GetRole)
+		roles.PUT("/:id", bc.RoleHandler.UpdateRole)
+		roles.DELETE("/:id", bc.RoleHandler.DeleteRole)
+		roles.POST("/:id/permissions", bc.RoleHandler.AssignPermissions)
 	}
 
 	// Permission routes
 	permissions := api.Group("/permissions")
 	{
-		permissions.GET("", s.permissionHandler.GetAllPermissions)
-		permissions.POST("", s.permissionHandler.CreatePermission)
-		permissions.GET("/:id", s.permissionHandler.GetPermission)
-		permissions.PUT("/:id", s.permissionHandler.UpdatePermission)
-		permissions.DELETE("/:id", s.permissionHandler.DeletePermission)
+		permissions.GET("", bc.PermissionHandler.GetAllPermissions)
+		permissions.POST("", bc.PermissionHandler.CreatePermission)
+		permissions.GET("/:id", bc.PermissionHandler.GetPermission)
+		permissions.PUT("/:id", bc.PermissionHandler.UpdatePermission)
+		permissions.DELETE("/:id", bc.PermissionHandler.DeletePermission)
 	}
 
 	// Menu routes
 	menus := api.Group("/menus")
 	{
-		menus.GET("", s.menuHandler.GetAllMenus)
-		menus.GET("/active", s.menuHandler.GetActiveMenus)
-		menus.POST("", s.menuHandler.CreateMenu)
-		menus.GET("/:id", s.menuHandler.GetMenu)
-		menus.PUT("/:id", s.menuHandler.UpdateMenu)
-		menus.DELETE("/:id", s.menuHandler.DeleteMenu)
-		menus.GET("/permissions", s.menuHandler.GetMenuPermissions)
+		menus.GET("", bc.MenuHandler.GetAllMenus)
+		menus.GET("/active", bc.MenuHandler.GetActiveMenus)
+		menus.POST("", bc.MenuHandler.CreateMenu)
+		menus.GET("/:id", bc.MenuHandler.GetMenu)
+		menus.PUT("/:id", bc.MenuHandler.UpdateMenu)
+		menus.DELETE("/:id", bc.MenuHandler.DeleteMenu)
+		menus.GET("/permissions", bc.MenuHandler.GetMenuPermissions)
 	}
 
 	userMeta := api.Group("/user-meta")
 	{
-		userMeta.POST("", s.userMetaHandler.CreateOrUpdate)
-		userMeta.GET("/:user_id", s.userMetaHandler.GetAllByUserID)
-		userMeta.GET("/:user_id/:key", s.userMetaHandler.GetByKey)
-		userMeta.DELETE("/:user_id/:key", s.userMetaHandler.Delete)
+		userMeta.POST("", bc.UserMetaHandler.CreateOrUpdate)
+		userMeta.GET("/:user_id", bc.UserMetaHandler.GetAllByUserID)
+		userMeta.GET("/:user_id/:key", bc.UserMetaHandler.GetByKey)
+		userMeta.DELETE("/:user_id/:key", bc.UserMetaHandler.Delete)
 	}
 
 	// Setting routes
-	settings := api.Group("/settings").Use(s.authMiddleware.RequireRole("admin"))
+	settings := api.Group("/settings").Use(bc.AuthMiddleware.RequireRole("admin"))
 	{
-		settings.POST("", s.settingHandler.CreateOrUpdate)
-		settings.GET("", s.settingHandler.GetAll)
-		settings.GET("/:key", s.settingHandler.GetByKey)
-		settings.DELETE("/:key", s.settingHandler.Delete)
+		settings.POST("", bc.SettingHandler.CreateOrUpdate)
+		settings.GET("", bc.SettingHandler.GetAll)
+		settings.GET("/:key", bc.SettingHandler.GetByKey)
+		settings.DELETE("/:key", bc.SettingHandler.Delete)
 	}
 
 	notifications := api.Group("/notifications")
-	notifications.Use(s.authMiddleware.RequireAuth())
+	notifications.Use(bc.AuthMiddleware.RequireAuth())
 	{
-		notifications.POST("/send-to-me", s.notificationHandler.SendToMe)
+		notifications.POST("/send-to-me", bc.NotificationHandler.SendToMe)
 
 		// Admin/Superuser only routes
 		adminNotif := notifications.Group("")
-		adminNotif.Use(s.authMiddleware.RequireRole("admin", "superuser"))
+		adminNotif.Use(bc.AuthMiddleware.RequireRole("admin", "superuser"))
 		{
-			adminNotif.POST("/send", s.notificationHandler.SendNotification)
+			adminNotif.POST("/send", bc.NotificationHandler.SendNotification)
 		}
 	}
 }

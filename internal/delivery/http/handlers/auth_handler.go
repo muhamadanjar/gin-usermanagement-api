@@ -62,7 +62,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	c.JSON(http.StatusCreated, utils.BuildResponseSuccess("Register Success", resp, nil))
 }
 
 // GetUserPermissions godoc
@@ -196,7 +196,7 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 	}
-	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Get User "+auth.User.FirstName, auth.User))
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Get User "+auth.User.FirstName, auth.User, nil))
 
 }
 
@@ -224,7 +224,7 @@ func (h *AuthHandler) CreateMeta(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": resp, "message": "Create Meta Success"})
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Create Meta Success", resp, nil))
 }
 
 func (h *AuthHandler) GetUserMeta(c *gin.Context) {
@@ -245,7 +245,7 @@ func (h *AuthHandler) GetUserMeta(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, metaData)
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Get Meta Success", metaData, nil))
 }
 
 // func (h *AuthHandler) SendToMe(c *gin.Context) {

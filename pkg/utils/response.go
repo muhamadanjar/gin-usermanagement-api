@@ -7,10 +7,13 @@ type Response struct {
 	Meta    any    `json:"meta,omitempty"`
 }
 
-func BuildResponseSuccess(message string, data any) Response {
+func BuildResponseSuccess(message string, data any, meta *any) Response {
 	res := Response{
 		Message: message,
 		Data:    data,
+	}
+	if meta != nil {
+		res.Meta = meta
 	}
 	return res
 }
