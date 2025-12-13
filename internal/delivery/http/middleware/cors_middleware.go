@@ -1,11 +1,8 @@
 package middleware
 
 import (
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
 	"time"
+	"usermanagement-api/config"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -16,43 +13,28 @@ type CORSMiddleware interface {
 	SetupCORS() gin.HandlerFunc
 }
 
-type corsMiddleware struct{}
-
-// NewCORSMiddleware creates a new CORS middleware
-func NewCORSMiddleware() CORSMiddleware {
-	return &corsMiddleware{}
+type corsMiddleware struct {
+	corsConfig config.CORSConfig
 }
 
-// SetupCORS sets up CORS configuration from environment variables
+// NewCORSMiddleware creates a new CORS middleware
+func NewCORSMiddleware(corsConfig config.CORSConfig) CORSMiddleware {
+	return &corsMiddleware{
+		corsConfig: corsConfig,
+	}
+}
+
+// SetupCORS sets up CORS configuration from config
 func (m *corsMiddleware) SetupCORS() gin.HandlerFunc {
-	// Get CORS configuration from environment
-	allowedOriginsStr := os.Getenv("CORS_ALLOWED_ORIGINS")
-	allowedOrigins := []string{"http://localhost:3000"} // Default value
-	if allowedOriginsStr != "" {
-		allowedOrigins = strings.Split(allowedOriginsStr, ",")
-	}
-
-	allowCredentials := true // Default value
-	if os.Getenv("CORS_ALLOW_CREDENTIALS") == "false" {
-		allowCredentials = false
-	}
-
-	maxAgeStr := os.Getenv("CORS_MAX_AGE")
-	maxAge := 12 * time.Hour // Default value
-	if maxAgeStr != "" {
-		if maxAgeSeconds, err := strconv.Atoi(maxAgeStr); err == nil {
-			maxAge = time.Duration(maxAgeSeconds) * time.Second
-		}
-	}
-	fmt.Println("allow Origins:", allowedOrigins)
+	maxAge := time.Duration(m.corsConfig.MaxAge) * time.Second
 
 	// Create CORS configuration
 	return cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
+		AllowOrigins:     m.corsConfig.AllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: allowCredentials,
+		AllowCredentials: m.corsConfig.AllowCredentials,
 		MaxAge:           maxAge,
 	})
 }

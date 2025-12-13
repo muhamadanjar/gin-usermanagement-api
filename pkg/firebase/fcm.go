@@ -3,10 +3,10 @@ package firebase
 
 import (
 	"context"
-	"log"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
+	"go.uber.org/zap"
 	"google.golang.org/api/option"
 )
 
@@ -18,9 +18,10 @@ type FCMClient interface {
 
 type fcmClient struct {
 	client *messaging.Client
+	logger *zap.Logger
 }
 
-func NewFCMClient(credentialsFile string) (FCMClient, error) {
+func NewFCMClient(credentialsFile string, logger *zap.Logger) (FCMClient, error) {
 	opt := option.WithCredentialsFile(credentialsFile)
 	app, err := firebase.NewApp(context.Background(), nil, opt)
 	if err != nil {
@@ -32,7 +33,10 @@ func NewFCMClient(credentialsFile string) (FCMClient, error) {
 		return nil, err
 	}
 
-	return &fcmClient{client: client}, nil
+	return &fcmClient{
+		client: client,
+		logger: logger,
+	}, nil
 }
 
 func (f *fcmClient) SendToDevice(token string, title, body string, data map[string]string) (string, error) {
@@ -47,7 +51,7 @@ func (f *fcmClient) SendToDevice(token string, title, body string, data map[stri
 
 	response, err := f.client.Send(context.Background(), message)
 	if err != nil {
-		log.Printf("Error sending message to device: %v\n", err)
+		f.logger.Error("Error sending message to device", zap.Error(err), zap.String("token", token[:10]+"..."))
 		return "", err
 	}
 
@@ -66,7 +70,7 @@ func (f *fcmClient) SendToDevices(tokens []string, title, body string, data map[
 
 	response, err := f.client.SendMulticast(context.Background(), message)
 	if err != nil {
-		log.Printf("Error sending message to devices: %v\n", err)
+		f.logger.Error("Error sending message to devices", zap.Error(err), zap.Int("token_count", len(tokens)))
 		return 0, err
 	}
 
@@ -85,7 +89,7 @@ func (f *fcmClient) SendToTopic(topic, title, body string, data map[string]strin
 
 	response, err := f.client.Send(context.Background(), message)
 	if err != nil {
-		log.Printf("Error sending message to topic: %v\n", err)
+		f.logger.Error("Error sending message to topic", zap.Error(err), zap.String("topic", topic))
 		return "", err
 	}
 

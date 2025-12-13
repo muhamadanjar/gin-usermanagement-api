@@ -3,9 +3,8 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"time"
+	"usermanagement-api/config"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -23,17 +22,30 @@ type TokenPair struct {
 	ExpiresIn    int    `json:"expires_in"` // Seconds until access token expires
 }
 
-// GenerateToken generates a new JWT token
-func GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, error) {
-	// Get expiration times from env
-	accessExpirationHours, err := strconv.Atoi(os.Getenv("ACCESS_TOKEN_EXPIRATION"))
-	if err != nil {
+// JWTService handles JWT token operations
+type JWTService struct {
+	jwtConfig config.JWTConfig
+}
+
+// NewJWTService creates a new JWT service
+func NewJWTService(jwtConfig config.JWTConfig) *JWTService {
+	return &JWTService{
+		jwtConfig: jwtConfig,
+	}
+}
+
+// GenerateTokenPair generates a new JWT token pair
+func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, error) {
+	// Use access token expiration from config
+	accessExpirationHours := s.jwtConfig.AccessTokenExpiration
+	if accessExpirationHours == 0 {
 		accessExpirationHours = 1 // Default to 1 hour
 	}
 
-	refreshExpirationHours, err := strconv.Atoi(os.Getenv("REFRESH_TOKEN_EXPIRATION"))
-	if err != nil {
-		refreshExpirationHours = 24 * 7 // Default to 7 days
+	// Use refresh token expiration from config
+	refreshExpirationHours := s.jwtConfig.RefreshTokenExpiration
+	if refreshExpirationHours == 0 {
+		refreshExpirationHours = 168 // Default to 7 days
 	}
 
 	// Generate access token
@@ -49,7 +61,7 @@ func GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, error) {
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessTokenString, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	accessTokenString, err := accessToken.SignedString([]byte(s.jwtConfig.Secret))
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +79,7 @@ func GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, error) {
 	}
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshTokenString, err := refreshToken.SignedString([]byte(os.Getenv("REFRESH_TOKEN_SECRET")))
+	refreshTokenString, err := refreshToken.SignedString([]byte(s.jwtConfig.RefreshTokenSecret))
 	if err != nil {
 		return nil, err
 	}
@@ -79,17 +91,17 @@ func GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, error) {
 	}, nil
 }
 
-// ValidateToken validates a JWT token
-func ValidateAccessToken(tokenString string) (*JWTClaims, error) {
-	return validateToken(tokenString, os.Getenv("JWT_SECRET"))
+// ValidateAccessToken validates an access token
+func (s *JWTService) ValidateAccessToken(tokenString string) (*JWTClaims, error) {
+	return s.validateToken(tokenString, s.jwtConfig.Secret)
 }
 
 // ValidateRefreshToken validates a refresh token
-func ValidateRefreshToken(tokenString string) (*JWTClaims, error) {
-	return validateToken(tokenString, os.Getenv("REFRESH_TOKEN_SECRET"))
+func (s *JWTService) ValidateRefreshToken(tokenString string) (*JWTClaims, error) {
+	return s.validateToken(tokenString, s.jwtConfig.RefreshTokenSecret)
 }
 
-func validateToken(tokenString, secret string) (*JWTClaims, error) {
+func (s *JWTService) validateToken(tokenString, secret string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -106,4 +118,37 @@ func validateToken(tokenString, secret string) (*JWTClaims, error) {
 	}
 
 	return nil, errors.New("invalid token")
+}
+
+// Legacy functions for backward compatibility (will be removed in future)
+// These use a global JWTService instance that should be set via SetGlobalJWTService
+var globalJWTService *JWTService
+
+// SetGlobalJWTService sets the global JWT service instance
+func SetGlobalJWTService(service *JWTService) {
+	globalJWTService = service
+}
+
+// GenerateTokenPair is a legacy function that uses global JWT service
+func GenerateTokenPair(userID uuid.UUID, email string) (*TokenPair, error) {
+	if globalJWTService == nil {
+		return nil, errors.New("JWT service not initialized")
+	}
+	return globalJWTService.GenerateTokenPair(userID, email)
+}
+
+// ValidateAccessToken is a legacy function that uses global JWT service
+func ValidateAccessToken(tokenString string) (*JWTClaims, error) {
+	if globalJWTService == nil {
+		return nil, errors.New("JWT service not initialized")
+	}
+	return globalJWTService.ValidateAccessToken(tokenString)
+}
+
+// ValidateRefreshToken is a legacy function that uses global JWT service
+func ValidateRefreshToken(tokenString string) (*JWTClaims, error) {
+	if globalJWTService == nil {
+		return nil, errors.New("JWT service not initialized")
+	}
+	return globalJWTService.ValidateRefreshToken(tokenString)
 }

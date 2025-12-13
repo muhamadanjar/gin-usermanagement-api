@@ -1,6 +1,7 @@
 package container
 
 import (
+	"usermanagement-api/config"
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/delivery/http/handlers"
 	"usermanagement-api/internal/delivery/http/middleware"
@@ -48,7 +49,7 @@ type BusinessContainer struct {
 }
 
 // NewBusinessContainer creates and initializes a new BusinessContainer
-func NewBusinessContainer(db *gorm.DB, cache cache.Cache, fcmClient firebase.FCMClient) *BusinessContainer {
+func NewBusinessContainer(db *gorm.DB, cache cache.Cache, fcmClient firebase.FCMClient, corsConfig config.CORSConfig) *BusinessContainer {
 	// Initialize repositories
 	userRepo := repositories.NewUserRepository(db)
 	roleRepo := repositories.NewRoleRepository(db)
@@ -70,7 +71,7 @@ func NewBusinessContainer(db *gorm.DB, cache cache.Cache, fcmClient firebase.FCM
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(userRepo, roleRepo, permissionRepo, modelPermissionRepo)
-	corsMiddleware := middleware.NewCORSMiddleware()
+	corsMiddleware := middleware.NewCORSMiddleware(corsConfig)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)

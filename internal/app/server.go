@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"usermanagement-api/internal/container"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type Server struct {
@@ -49,6 +49,8 @@ func (s *Server) Initialize() error {
 }
 
 func (s *Server) Run() error {
+	log := s.appContainer.Logger
+
 	// Server run context
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
@@ -58,6 +60,8 @@ func (s *Server) Run() error {
 	go func() {
 		<-sig
 
+		log.Info("Shutdown signal received, starting graceful shutdown")
+
 		// Shutdown signal with grace period of 30 seconds
 		shutdownCtx, cancel := context.WithTimeout(serverCtx, 30*time.Second)
 		defer cancel()
@@ -65,21 +69,20 @@ func (s *Server) Run() error {
 		go func() {
 			<-shutdownCtx.Done()
 			if shutdownCtx.Err() == context.DeadlineExceeded {
-				log.Fatal("graceful shutdown timed out.. forcing exit.")
+				log.Fatal("Graceful shutdown timed out, forcing exit")
 			}
 		}()
 
 		// Trigger graceful shutdown
-		err := s.httpServer.Shutdown(shutdownCtx)
-		if err != nil {
-			log.Fatal(err)
+		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+			log.Fatal("Failed to shutdown server", zap.Error(err))
 		}
 		serverStopCtx()
 	}()
 
 	// Run the server
 	addr := fmt.Sprintf("%s:%d", s.appContainer.Config.Server.Host, s.appContainer.Config.Server.Port)
-	log.Printf("Server is running on %s", addr)
+	log.Info("Server is running", zap.String("addr", addr))
 	err := s.httpServer.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		return err
@@ -87,5 +90,6 @@ func (s *Server) Run() error {
 
 	// Wait for server context to be stopped
 	<-serverCtx.Done()
+	log.Info("Server stopped")
 	return nil
 }
