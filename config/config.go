@@ -34,6 +34,7 @@ type DatabaseConfig struct {
 	Password string
 	Name     string
 	SSLMode  string
+	LogLevel string // silent, error, warn, info
 }
 
 // JWTConfig holds JWT-related configuration
@@ -173,6 +174,15 @@ func LoadConfig() (*Config, error) {
 		dbSSLMode = v.GetString("DB_SSLMODE")
 		if dbSSLMode == "" {
 			dbSSLMode = "disable"
+		}
+	}
+
+	// Load database log level (for GORM SQL query logging)
+	dbLogLevel := v.GetString("database.log_level")
+	if dbLogLevel == "" {
+		dbLogLevel = v.GetString("DB_LOG_LEVEL")
+		if dbLogLevel == "" {
+			dbLogLevel = "info" // default: only show errors and slow queries
 		}
 	}
 
@@ -337,6 +347,7 @@ func LoadConfig() (*Config, error) {
 			Password: dbPassword,
 			Name:     dbName,
 			SSLMode:  dbSSLMode,
+			LogLevel: dbLogLevel,
 		},
 		JWT: JWTConfig{
 			Secret:                jwtSecret,

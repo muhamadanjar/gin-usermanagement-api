@@ -17,10 +17,23 @@ func ConnectDB(cfg *config.Config, zapLogger *zap.Logger) (*gorm.DB, error) {
 	dsn := cfg.Database.GetDSN()
 	zapLogger.Debug("Connecting to database", zap.String("host", cfg.Database.Host), zap.Int("port", cfg.Database.Port))
 
+	// Map config log level to GORM log level
+	gormLogLevel := gormLogger.Info // default
+	switch cfg.Database.LogLevel {
+	case "silent":
+		gormLogLevel = gormLogger.Silent
+	case "error":
+		gormLogLevel = gormLogger.Error
+	case "warn":
+		gormLogLevel = gormLogger.Warn
+	case "info":
+		gormLogLevel = gormLogger.Info
+	}
+
 	// Create GORM logger adapter for zap
 	gormZapLogger := &gormZapLogger{
 		logger: zapLogger.With(zap.String("component", "gorm")),
-		level:  gormLogger.Info,
+		level:  gormLogLevel,
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
@@ -101,6 +114,7 @@ func (l *gormZapLogger) Trace(ctx context.Context, begin time.Time, fc func() (s
 
 	switch {
 	case err != nil && l.level >= gormLogger.Error:
+		// Log errors at Error level
 		l.logger.Error("SQL query error",
 			zap.Error(err),
 			zap.String("sql", sql),
@@ -108,13 +122,16 @@ func (l *gormZapLogger) Trace(ctx context.Context, begin time.Time, fc func() (s
 			zap.Duration("elapsed", elapsed),
 		)
 	case elapsed > 200*time.Millisecond && l.level >= gormLogger.Warn:
+		// Log slow queries at Warn level
 		l.logger.Warn("Slow SQL query",
 			zap.String("sql", sql),
 			zap.Int64("rows", rows),
 			zap.Duration("elapsed", elapsed),
 		)
-	case l.level == gormLogger.Info:
-		l.logger.Debug("SQL query",
+	case l.level >= gormLogger.Info:
+		// Log all queries at Info level when GORM log level is Info or lower
+		// Use Info level instead of Debug so it shows even when zap logger is at Info level
+		l.logger.Info("SQL query",
 			zap.String("sql", sql),
 			zap.Int64("rows", rows),
 			zap.Duration("elapsed", elapsed),

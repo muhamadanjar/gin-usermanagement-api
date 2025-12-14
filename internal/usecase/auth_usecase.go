@@ -9,9 +9,11 @@ import (
 	"usermanagement-api/internal/dto"
 	"usermanagement-api/pkg/auth"
 	"usermanagement-api/pkg/firebase"
+	"usermanagement-api/pkg/logger"
 	"usermanagement-api/pkg/utils"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -163,6 +165,7 @@ func (uc *authUseCase) GetUserPermissions(userID uuid.UUID) ([]*entities.Permiss
 	if err != nil {
 		return nil, err
 	}
+	logger.GetLogger().Info("Roles found")
 
 	// Get role IDs
 	var roleIDs []uuid.UUID
@@ -175,6 +178,8 @@ func (uc *authUseCase) GetUserPermissions(userID uuid.UUID) ([]*entities.Permiss
 	if err != nil {
 		return nil, err
 	}
+
+	logger.GetLogger().Info("Permissions found", zap.Any("permissions", permissions))
 
 	return permissions, nil
 }
