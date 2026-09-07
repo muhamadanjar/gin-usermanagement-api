@@ -6,18 +6,26 @@ import (
 	"github.com/google/uuid"
 )
 
-// User is a pure domain entity. Persistence concerns (GORM tags, soft delete)
-// live in infrastructure/database/models and are mapped in the repository layer.
+// User mirrors the FastAPI UserModel columns (plus FirstName/LastName kept for
+// API backward compatibility).
 type User struct {
-	ID          uuid.UUID
-	Username    string
-	Email       string
-	Password    string
-	FirstName   string
-	LastName    string
-	IsSuperuser bool
-	IsActive    bool
-	Roles       []*Role
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                  uuid.UUID
+	Username            string
+	Email               string
+	Name                string
+	Password            string
+	FirstName           string
+	LastName            string
+	IsVerified          bool
+	IsSuperuser         bool
+	IsActive            bool
+	Avatar              string
+	EmailVerifiedAt     time.Time
+	FailedLoginAttempts int
+	LockedUntil         time.Time
+	LastLogin           time.Time
+	Status              string
+	Roles               []*Role
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }

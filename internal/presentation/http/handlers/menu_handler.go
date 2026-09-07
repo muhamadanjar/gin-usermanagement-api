@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"usermanagement-api/internal/application/dto"
 	"usermanagement-api/internal/application/usecase"
+	"usermanagement-api/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -214,4 +215,31 @@ func (h *MenuHandler) GetMenuPermissions(r *gin.Context) {
 		"data": menu,
 	})
 
+}
+
+// AssignMenuPermissions godoc
+// @Summary Assign permissions to a menu (by name)
+// @Tags menus
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Menu ID"
+// @Param body body dto.MenuAssignPermissionRequest true "Permission names"
+// @Router /menus/{id}/assign-permissions [post]
+func (h *MenuHandler) AssignMenuPermissions(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed("invalid menu id", "VALIDATION_ERROR", nil))
+		return
+	}
+	var req dto.MenuAssignPermissionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "VALIDATION_ERROR", nil))
+		return
+	}
+	menu, err := h.menuUseCase.AssignPermissions(id, &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "BAD_REQUEST", nil))
+		return
+	}
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Grant Permission Successfully", menu, nil))
 }

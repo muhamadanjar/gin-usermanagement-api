@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"usermanagement-api/domain/entities"
+	"usermanagement-api/domain/ports"
 	"usermanagement-api/domain/repositories"
-	"usermanagement-api/pkg/auth"
 
 	"github.com/google/uuid"
 )
@@ -18,38 +18,32 @@ type Authorizer interface {
 }
 
 type authorizer struct {
-	userRepo            repositories.UserRepository
-	roleRepo            repositories.RoleRepository
-	permissionRepo      repositories.PermissionRepository
-	modelPermissionRepo repositories.ModelPermissionRepository
-	jwtService          *auth.JWTService
+	userRepo     repositories.UserRepository
+	roleRepo     repositories.RoleRepository
+	tokenManager ports.TokenManager
 }
 
 func NewAuthorizer(
 	userRepo repositories.UserRepository,
 	roleRepo repositories.RoleRepository,
-	permissionRepo repositories.PermissionRepository,
-	modelPermissionRepo repositories.ModelPermissionRepository,
-	jwtService *auth.JWTService,
+	tokenManager ports.TokenManager,
 ) Authorizer {
 	return &authorizer{
-		userRepo:            userRepo,
-		roleRepo:            roleRepo,
-		permissionRepo:      permissionRepo,
-		modelPermissionRepo: modelPermissionRepo,
-		jwtService:          jwtService,
+		userRepo:     userRepo,
+		roleRepo:     roleRepo,
+		tokenManager: tokenManager,
 	}
 }
 
 // ResolvePrincipal validates the bearer token and loads the user together with
 // their roles and the permissions those roles grant.
 func (a *authorizer) ResolvePrincipal(token string) (*entities.Principal, error) {
-	claims, err := a.jwtService.ValidateAccessToken(token)
+	userID, err := a.tokenManager.ValidateAccessToken(token)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := a.userRepo.FindByID(claims.UserID)
+	user, err := a.userRepo.FindByID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,22 +70,11 @@ func (a *authorizer) ResolvePrincipal(token string) (*entities.Principal, error)
 	}, nil
 }
 
-// CheckPermission grants access to superusers, then to principals whose roles
-// carry the named permission, and finally falls back to object-level
-// model_permissions for the given model.
+// CheckPermission grants access to superusers, or to principals whose roles
+// carry the named permission.
 func (a *authorizer) CheckPermission(principal *entities.Principal, modelType string, modelID uuid.UUID, permissionName string) (bool, error) {
 	if principal.IsSuperuser() {
 		return true, nil
 	}
-
-	permission, err := a.permissionRepo.FindByName(permissionName)
-	if err != nil {
-		return false, nil // permission does not exist → deny
-	}
-
-	if principal.HasPermission(permission.Name) {
-		return true, nil
-	}
-
-	return a.modelPermissionRepo.CheckPermission(modelType, modelID, permission.ID)
+	return principal.HasPermission(permissionName), nil
 }

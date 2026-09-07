@@ -5,8 +5,6 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "8080:8080"
-    # volumes:
-    #   - ./:/app
     env_file:
       - .env
     # For Linux users, uncomment the following line to use host networking

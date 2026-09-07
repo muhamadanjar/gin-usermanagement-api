@@ -2,9 +2,9 @@
 package usecase
 
 import (
+	"usermanagement-api/domain/ports"
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/application/dto"
-	"usermanagement-api/pkg/firebase"
 
 	"github.com/google/uuid"
 )
@@ -18,16 +18,16 @@ type NotificationUseCase interface {
 
 type notificationUseCase struct {
 	userMetaRepo repositories.UserMetaRepository
-	fcmClient    firebase.FCMClient
+	notifier     ports.Notifier
 }
 
 func NewNotificationUseCase(
 	userMetaRepo repositories.UserMetaRepository,
-	fcmClient firebase.FCMClient,
+	notifier ports.Notifier,
 ) NotificationUseCase {
 	return &notificationUseCase{
 		userMetaRepo: userMetaRepo,
-		fcmClient:    fcmClient,
+		notifier:     notifier,
 	}
 }
 
@@ -44,7 +44,7 @@ func (uc *notificationUseCase) SendToUser(userID uuid.UUID, title, body string, 
 	var tokens = deviceTokens.Value
 
 	// Send notification
-	successCount, err := uc.fcmClient.SendToDevices([]string{tokens}, title, body, data)
+	successCount, err := uc.notifier.SendToDevices([]string{tokens}, title, body, data)
 	if err != nil {
 		return &dto.NotificationResponse{
 			Success: false,
@@ -81,7 +81,7 @@ func (uc *notificationUseCase) SendToUsers(userIDs []uuid.UUID, title, body stri
 	}
 
 	// Send notification
-	successCount, err := uc.fcmClient.SendToDevices(allTokens, title, body, data)
+	successCount, err := uc.notifier.SendToDevices(allTokens, title, body, data)
 	if err != nil {
 		return &dto.NotificationResponse{
 			Success: false,
@@ -96,7 +96,7 @@ func (uc *notificationUseCase) SendToUsers(userIDs []uuid.UUID, title, body stri
 }
 
 func (uc *notificationUseCase) SendToTopic(topic, title, body string, data map[string]string) (*dto.NotificationResponse, error) {
-	messageID, err := uc.fcmClient.SendToTopic(topic, title, body, data)
+	messageID, err := uc.notifier.SendToTopic(topic, title, body, data)
 	if err != nil {
 		return &dto.NotificationResponse{
 			Success: false,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 	"usermanagement-api/config"
-	"usermanagement-api/infrastructure/database/models"
 
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -46,32 +45,6 @@ func ConnectDB(cfg *config.Config, zapLogger *zap.Logger) (*gorm.DB, error) {
 
 	zapLogger.Info("Connected to database", zap.String("host", cfg.Database.Host), zap.Int("port", cfg.Database.Port))
 	return db, nil
-}
-
-// MigrateDB migrates the database schema
-func MigrateDB(db *gorm.DB, zapLogger *zap.Logger) error {
-	zapLogger.Info("Starting database migration")
-
-	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";").Error; err != nil {
-		zapLogger.Warn("Failed to create uuid extension (might already exist)", zap.Error(err))
-	}
-
-	err := db.AutoMigrate(
-		&models.UserModel{},
-		&models.RoleModel{},
-		&models.PermissionModel{},
-		&models.MenuModel{},
-		&models.ModelPermissionModel{},
-		&models.SettingModel{},
-		&models.UserMetaModel{},
-	)
-	if err != nil {
-		zapLogger.Error("Failed to migrate database", zap.Error(err))
-		return err
-	}
-
-	zapLogger.Info("Database migration completed")
-	return nil
 }
 
 // gormZapLogger implements gorm.io/gorm/logger.Interface

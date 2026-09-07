@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"fmt"
+	"strings"
 	"usermanagement-api/domain/entities"
 	domainrepos "usermanagement-api/domain/repositories"
 	"usermanagement-api/infrastructure/database/models"
@@ -31,7 +31,7 @@ func (r *menuRepository) Create(menu *entities.Menu) error {
 
 func (r *menuRepository) FindByID(id uuid.UUID) (*entities.Menu, error) {
 	var m models.MenuModel
-	if err := r.db.First(&m, id).Error; err != nil {
+	if err := r.db.Preload("Permissions").First(&m, id).Error; err != nil {
 		return nil, err
 	}
 	return toEntityMenu(&m), nil
@@ -55,7 +55,7 @@ func (r *menuRepository) FindAll(page, pageSize int) ([]*entities.Menu, int64, e
 		return nil, 0, err
 	}
 
-	if err := r.db.Preload("Children").Offset(offset).Limit(pageSize).Find(&rows).Error; err != nil {
+	if err := r.db.Preload("Children").Preload("Permissions").Offset(offset).Limit(pageSize).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -68,7 +68,7 @@ func (r *menuRepository) FindAll(page, pageSize int) ([]*entities.Menu, int64, e
 
 func (r *menuRepository) FindAllActive() ([]*entities.Menu, error) {
 	var rows []*models.MenuModel
-	if err := r.db.Preload("Children", "active = ?", true).Where("active = ?", true).Order("\"order\" asc").Find(&rows).Error; err != nil {
+	if err := r.db.Preload("Children", "is_active = ?", true).Preload("Permissions").Where("is_active = ?", true).Order("sequence asc").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	menus := make([]*entities.Menu, 0, len(rows))
@@ -80,7 +80,7 @@ func (r *menuRepository) FindAllActive() ([]*entities.Menu, error) {
 
 func (r *menuRepository) FindAllByParentID(parentID *uuid.UUID) ([]*entities.Menu, error) {
 	var rows []*models.MenuModel
-	query := r.db.Order("\"order\" asc")
+	query := r.db.Order("sequence asc")
 
 	if parentID == nil {
 		query = query.Where("parent_id IS NULL")
@@ -107,22 +107,60 @@ func (r *menuRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&models.MenuModel{}, id).Error
 }
 
+// AssignPermissionsByName appends permissions (by name, created if missing) to a
+// menu via the menu_permission join table — mirrors FastAPI's
+// assign_permissions_by_names.
+func (r *menuRepository) AssignPermissionsByName(menuID uuid.UUID, names []string) error {
+	var menu models.MenuModel
+	if err := r.db.Preload("Permissions").First(&menu, menuID).Error; err != nil {
+		return err
+	}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		var perm models.PermissionModel
+		err := r.db.Where("name = ?", name).First(&perm).Error
+		if err == gorm.ErrRecordNotFound {
+			perm = models.PermissionModel{Name: name}
+			if err := r.db.Create(&perm).Error; err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		}
+		if err := r.db.Model(&menu).Association("Permissions").Append(&perm); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *menuRepository) FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, error) {
 	var rows []*models.MenuModel
-	var permissionIDs []uuid.UUID
-	permErr := r.db.Table("role_permissions").
+
+	// role → permissions → menus, via the menu_permission join table (mirrors FastAPI).
+	permSub := r.db.Table("role_permissions").
 		Select("permission_id").
-		Where("role_id = ?", roleID).
-		Pluck("permission_id", &permissionIDs).Error
-	if permErr != nil {
-		return nil, permErr
+		Where("role_id = ?", roleID)
+	permIDs := []uuid.UUID{}
+	// Distinct permission ids assigned to the role.
+	if err := r.db.Model(&models.PermissionModel{}).
+		Where("id IN (?)", permSub).
+		Where("is_active = ?", true).
+		Distinct("id").
+		Pluck("id", &permIDs).Error; err != nil {
+		return nil, err
+	}
+	if len(permIDs) == 0 {
+		return []*entities.Menu{}, nil
 	}
 
-	fmt.Println("perms ids", permissionIDs)
-
-	err := r.db.Table("menus").
-		Joins("INNER JOIN model_permissions ON menus.id = CAST(model_permissions.model_id as uuid)").
-		Where("model_permissions.model_type = ? AND model_permissions.permission_id IN ? AND menus.is_visible = ? AND menus.is_active = ?", "menu", permissionIDs, true, true).
+	err := r.db.Preload("Permissions").
+		Joins("JOIN menu_permission mp ON mp.menu_id = menus.id").
+		Where("mp.permission_id IN ?", permIDs).
+		Where("menus.is_visible = ? AND menus.is_active = ?", true, true).
 		Order("menus.sequence ASC").Find(&rows).Error
 
 	menus := make([]*entities.Menu, 0, len(rows))
@@ -134,9 +172,9 @@ func (r *menuRepository) FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, 
 
 func (r *menuRepository) MenuBySuperUser() ([]*entities.Menu, error) {
 	var rows []*models.MenuModel
-	if err := r.db.Table("menus").
-		Joins("INNER JOIN model_permissions ON menus.id = CAST(model_permissions.model_id as uuid)").
-		Where("menus.is_active = ? AND menus.is_visible = ?", true, true).Order("menus.sequence asc").Find(&rows).Error; err != nil {
+	if err := r.db.Preload("Permissions").
+		Where("menus.is_active = ? AND menus.is_visible = ?", true, true).
+		Order("menus.sequence asc").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	menus := make([]*entities.Menu, 0, len(rows))

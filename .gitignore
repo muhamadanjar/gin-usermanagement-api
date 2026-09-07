@@ -3,3 +3,5 @@ uploads
 build
 main
 api
+# local go build cache (see sandbox)
+.go-cache/

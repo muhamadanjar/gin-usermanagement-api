@@ -1,10 +1,10 @@
 package container
 
 import (
+	"usermanagement-api/domain/ports"
 	gormrepo "usermanagement-api/infrastructure/database/repositories"
 	"usermanagement-api/internal/application/usecase"
 	"usermanagement-api/internal/presentation/http/middleware"
-	"usermanagement-api/pkg/auth"
 
 	"gorm.io/gorm"
 )
@@ -16,13 +16,11 @@ type AuthzModule struct {
 	Middleware middleware.AuthMiddleware
 }
 
-func NewAuthzModule(db *gorm.DB, jwtService *auth.JWTService) *AuthzModule {
+func NewAuthzModule(db *gorm.DB, tokenManager ports.TokenManager) *AuthzModule {
 	authorizer := usecase.NewAuthorizer(
 		gormrepo.NewUserRepository(db),
 		gormrepo.NewRoleRepository(db),
-		gormrepo.NewPermissionRepository(db),
-		gormrepo.NewModelPermissionRepository(db),
-		jwtService,
+		tokenManager,
 	)
 	return &AuthzModule{Middleware: middleware.NewAuthMiddleware(authorizer)}
 }

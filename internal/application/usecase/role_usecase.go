@@ -18,6 +18,7 @@ type RoleUseCase interface {
 	Delete(id uuid.UUID) error
 	AssignPermissions(roleID uuid.UUID, permissionIDs []uuid.UUID) (*dto.RoleResponse, error)
 	GetUserRoles(userID uuid.UUID) ([]*dto.RoleResponse, error)
+	GetMembers(roleID uuid.UUID) ([]dto.UserSimple, error)
 }
 
 type roleUseCase struct {
@@ -172,4 +173,20 @@ func (uc *roleUseCase) mapToRoleResponse(role *entities.Role) *dto.RoleResponse 
 	}
 
 	return resp
+}
+
+func (uc *roleUseCase) GetMembers(roleID uuid.UUID) ([]dto.UserSimple, error) {
+	members, err := uc.roleRepo.FindMembersByRoleID(roleID)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]dto.UserSimple, 0, len(members))
+	for _, member := range members {
+		resp = append(resp, dto.UserSimple{
+			ID:       member.ID,
+			Username: member.Username,
+			Email:    member.Email,
+		})
+	}
+	return resp, nil
 }

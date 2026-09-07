@@ -15,4 +15,8 @@ type UserRepository interface {
 	Update(user *entities.User) error
 	Delete(id uuid.UUID) error
 	AssignRoles(userID uuid.UUID, roleIDs []uuid.UUID) error
+	AppendRole(userID uuid.UUID, roleID uuid.UUID) error
+	AddTokenHistory(history *entities.TokenHistory) error
+	FindTokenHistory(userID uuid.UUID) ([]*entities.TokenHistory, error)
+	RemoveTokenHistoryByToken(token string) error
 }

@@ -27,20 +27,22 @@ type RegisterRequest struct {
 	LastName  string `json:"last_name"`
 }
 
-type ModelPermissionRequest struct {
-	ModelID      uuid.UUID `json:"model_id" binding:"required"`
-	ModelType    string    `json:"model_type" binding:"required"`
-	PermissionID uuid.UUID `json:"permission_id" binding:"required"`
+// RefreshRequest mirrors FastAPI's RefreshRequest {refresh_token}.
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-type ModelPermissionResponse struct {
-	ID           uuid.UUID        `json:"id"`
-	ModelID      uuid.UUID        `json:"model_id"`
-	ModelType    string           `json:"model_type"`
-	PermissionID uuid.UUID        `json:"permission_id"`
-	Permission   PermissionSimple `json:"permission"`
-	CreatedAt    string           `json:"created_at"`
-	UpdatedAt    string           `json:"updated_at"`
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
+type ProfileUpdateRequest struct {
+	Name      string `json:"name"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email" binding:"omitempty,email"`
+	Avatar    string `json:"avatar"`
 }
 
 type CreateMetaDataRequest struct {

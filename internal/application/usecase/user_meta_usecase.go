@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 	"usermanagement-api/domain/entities"
+	"usermanagement-api/domain/ports"
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/application/dto"
-	"usermanagement-api/pkg/cache"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -24,10 +24,10 @@ type UserMetaUseCase interface {
 
 type userMetaUseCase struct {
 	userMetaRepo repositories.UserMetaRepository
-	cache        cache.Cache
+	cache        ports.Cache
 }
 
-func NewUserMetaUseCase(userMetaRepo repositories.UserMetaRepository, cache cache.Cache) UserMetaUseCase {
+func NewUserMetaUseCase(userMetaRepo repositories.UserMetaRepository, cache ports.Cache) UserMetaUseCase {
 	return &userMetaUseCase{
 		userMetaRepo: userMetaRepo,
 		cache:        cache,

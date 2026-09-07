@@ -2,6 +2,8 @@ package app
 
 import (
 	"usermanagement-api/config"
+	"usermanagement-api/domain/ports"
+	infradb "usermanagement-api/infrastructure/database"
 	"usermanagement-api/pkg/auth"
 	"usermanagement-api/pkg/cache"
 	"usermanagement-api/pkg/database"
@@ -17,8 +19,8 @@ type AppContainer struct {
 	Config     *config.Config
 	Logger     *zap.Logger
 	DB         *gorm.DB
-	Cache      cache.Cache
-	FCMClient  firebase.FCMClient
+	Cache      ports.Cache
+	FCMClient  ports.Notifier
 	JWTService *auth.JWTService
 }
 
@@ -63,7 +65,7 @@ func NewAppContainer() (*AppContainer, error) {
 	}
 
 	// Migrate database
-	if err := database.MigrateDB(db, zapLogger); err != nil {
+	if err := infradb.MigrateDB(db, zapLogger); err != nil {
 		zapLogger.Fatal("Failed to migrate database", zap.Error(err))
 		return nil, err
 	}

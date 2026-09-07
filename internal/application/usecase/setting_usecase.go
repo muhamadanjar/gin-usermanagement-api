@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"time"
 	"usermanagement-api/domain/entities"
+	"usermanagement-api/domain/ports"
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/application/dto"
-	"usermanagement-api/internal/constants"
-	"usermanagement-api/pkg/cache"
 )
+
+const settingsCacheKey = "global_settings"
 
 type SettingUseCase interface {
 	CreateOrUpdate(key, value string) error
@@ -21,10 +22,10 @@ type SettingUseCase interface {
 
 type settingUseCase struct {
 	settingRepo repositories.SettingRepository
-	cache       cache.Cache
+	cache       ports.Cache
 }
 
-func NewSettingUseCase(settingRepo repositories.SettingRepository, cache cache.Cache) SettingUseCase {
+func NewSettingUseCase(settingRepo repositories.SettingRepository, cache ports.Cache) SettingUseCase {
 	return &settingUseCase{
 		settingRepo: settingRepo,
 		cache:       cache,
@@ -43,7 +44,7 @@ func (uc *settingUseCase) CreateOrUpdate(key, value string) error {
 
 	// Clear cache
 	ctx := context.Background()
-	_ = uc.cache.Delete(ctx, constants.SettingsCacheKey)
+	_ = uc.cache.Delete(ctx, settingsCacheKey)
 
 	return nil
 }
@@ -51,7 +52,7 @@ func (uc *settingUseCase) CreateOrUpdate(key, value string) error {
 func (uc *settingUseCase) GetByKey(key string) (*dto.SettingResponse, error) {
 	// Check cache first
 	ctx := context.Background()
-	cachedData, err := uc.cache.Get(ctx, constants.SettingsCacheKey)
+	cachedData, err := uc.cache.Get(ctx, settingsCacheKey)
 	if err == nil && cachedData != "" {
 		var settingsMap map[string]string
 		if err := json.Unmarshal([]byte(cachedData), &settingsMap); err == nil {
@@ -82,7 +83,7 @@ func (uc *settingUseCase) GetByKey(key string) (*dto.SettingResponse, error) {
 func (uc *settingUseCase) GetAll() (map[string]string, error) {
 	// Check cache first
 	ctx := context.Background()
-	cachedData, err := uc.cache.Get(ctx, constants.SettingsCacheKey)
+	cachedData, err := uc.cache.Get(ctx, settingsCacheKey)
 	if err == nil && cachedData != "" {
 		var settingsMap map[string]string
 		if err := json.Unmarshal([]byte(cachedData), &settingsMap); err == nil {
@@ -102,7 +103,7 @@ func (uc *settingUseCase) GetAll() (map[string]string, error) {
 	}
 
 	// Update cache
-	_ = uc.cache.Set(ctx, constants.SettingsCacheKey, settingsMap, 1*time.Hour)
+	_ = uc.cache.Set(ctx, settingsCacheKey, settingsMap, 1*time.Hour)
 
 	return settingsMap, nil
 }
@@ -114,7 +115,7 @@ func (uc *settingUseCase) Delete(key string) error {
 
 	// Clear cache
 	ctx := context.Background()
-	_ = uc.cache.Delete(ctx, constants.SettingsCacheKey)
+	_ = uc.cache.Delete(ctx, settingsCacheKey)
 
 	return nil
 }
@@ -128,6 +129,6 @@ func (uc *settingUseCase) updateSettingsCache() {
 		for _, setting := range settings {
 			settingsMap[setting.Key] = setting.Value
 		}
-		_ = uc.cache.Set(ctx, constants.SettingsCacheKey, settingsMap, 1*time.Hour)
+		_ = uc.cache.Set(ctx, settingsCacheKey, settingsMap, 1*time.Hour)
 	}
 }

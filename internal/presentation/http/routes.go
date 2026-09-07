@@ -14,6 +14,7 @@ func RegisterRoutes(router *gin.Engine, bc *container.BusinessContainer) {
 
 	public.POST("/auth/login", bc.AuthHandler.Login)
 	public.POST("/auth/register", bc.AuthHandler.Register)
+	public.POST("/auth/refresh", bc.AuthHandler.Refresh)
 
 	// Protected routes
 	api := router.Group("/")
@@ -23,12 +24,14 @@ func RegisterRoutes(router *gin.Engine, bc *container.BusinessContainer) {
 	auth := api.Group("/auth")
 	{
 		auth.GET("/permissions", bc.AuthHandler.GetUserPermissions)
-		auth.POST("/model-permissions", bc.AuthHandler.CreateModelPermission)
-		auth.GET("/model-permissions", bc.AuthHandler.GetModelPermissions)
 		auth.GET("/info", bc.AuthHandler.GetUser)
 		auth.POST("/metas", bc.AuthHandler.CreateMeta)
 		auth.GET("/metas", bc.AuthHandler.GetUserMeta)
+		auth.POST("/change-password", bc.AuthHandler.ChangePassword)
+		auth.PUT("/profile", bc.AuthHandler.UpdateProfile)
+		auth.GET("/token-history", bc.AuthHandler.GetMyTokenHistory)
 	}
+	api.GET("/logout", bc.AuthHandler.Logout)
 
 	// User routes
 	users := api.Group("/users").Use(bc.AuthMiddleware.RequireRole("admin"))
@@ -36,9 +39,14 @@ func RegisterRoutes(router *gin.Engine, bc *container.BusinessContainer) {
 		users.GET("", bc.UserHandler.GetAllUsers)
 		users.POST("", bc.UserHandler.CreateUser)
 		users.GET("/:id", bc.UserHandler.GetUser)
-		users.PUT("/:id", bc.UserHandler.UpdateUser)
+		users.PATCH("/:id", bc.UserHandler.UpdateUser)
 		users.DELETE("/:id", bc.UserHandler.DeleteUser)
+		users.POST("/assign-role/:id", bc.UserHandler.AssignRole)
+		users.PUT("/:id/roles", bc.UserHandler.SyncRoles)
 		users.POST("/:id/roles", bc.UserHandler.AssignRoles)
+		users.GET("/:id/metas", bc.UserHandler.GetUserMeta)
+		users.POST("/:id/update-avatar", bc.UserHandler.UpdateUserAvatar)
+		users.GET("/:id/token-history", bc.UserHandler.GetUserTokenHistory)
 	}
 
 	// Role routes
@@ -47,8 +55,9 @@ func RegisterRoutes(router *gin.Engine, bc *container.BusinessContainer) {
 		roles.GET("", bc.RoleHandler.GetAllRoles)
 		roles.POST("", bc.RoleHandler.CreateRole)
 		roles.GET("/:id", bc.RoleHandler.GetRole)
-		roles.PUT("/:id", bc.RoleHandler.UpdateRole)
+		roles.PATCH("/:id", bc.RoleHandler.UpdateRole)
 		roles.DELETE("/:id", bc.RoleHandler.DeleteRole)
+		roles.GET("/:id/members", bc.RoleHandler.GetRoleMembers)
 		roles.POST("/:id/permissions", bc.RoleHandler.AssignPermissions)
 	}
 
@@ -58,7 +67,7 @@ func RegisterRoutes(router *gin.Engine, bc *container.BusinessContainer) {
 		permissions.GET("", bc.PermissionHandler.GetAllPermissions)
 		permissions.POST("", bc.PermissionHandler.CreatePermission)
 		permissions.GET("/:id", bc.PermissionHandler.GetPermission)
-		permissions.PUT("/:id", bc.PermissionHandler.UpdatePermission)
+		permissions.PATCH("/:id", bc.PermissionHandler.UpdatePermission)
 		permissions.DELETE("/:id", bc.PermissionHandler.DeletePermission)
 	}
 
@@ -69,8 +78,9 @@ func RegisterRoutes(router *gin.Engine, bc *container.BusinessContainer) {
 		menus.GET("/active", bc.MenuHandler.GetActiveMenus)
 		menus.POST("", bc.MenuHandler.CreateMenu)
 		menus.GET("/:id", bc.MenuHandler.GetMenu)
-		menus.PUT("/:id", bc.MenuHandler.UpdateMenu)
+		menus.PATCH("/:id", bc.MenuHandler.UpdateMenu)
 		menus.DELETE("/:id", bc.MenuHandler.DeleteMenu)
+		menus.POST("/:id/assign-permissions", bc.MenuHandler.AssignMenuPermissions)
 		menus.GET("/permissions", bc.MenuHandler.GetMenuPermissions)
 	}
 

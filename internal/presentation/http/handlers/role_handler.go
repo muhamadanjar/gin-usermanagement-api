@@ -218,3 +218,18 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
+
+// GetRoleMembers godoc — GET /roles/{id}/members.
+func (h *RoleHandler) GetRoleMembers(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role id"})
+		return
+	}
+	members, err := h.roleUseCase.GetMembers(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": members})
+}

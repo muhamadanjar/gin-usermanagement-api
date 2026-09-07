@@ -18,6 +18,7 @@ type MenuUseCase interface {
 	Update(id uuid.UUID, req *dto.UpdateMenuRequest) (*dto.MenuResponse, error)
 	Delete(id uuid.UUID) error
 	PermissionMenu() ([]*dto.MenuResponse, error)
+	AssignPermissions(menuID uuid.UUID, req *dto.MenuAssignPermissionRequest) (*dto.MenuResponse, error)
 }
 
 type menuUseCase struct {
@@ -38,13 +39,14 @@ func (uc *menuUseCase) Create(req *dto.CreateMenuRequest) (*dto.MenuResponse, er
 
 	// Create menu
 	menu := &entities.Menu{
-		Name:        req.Name,
-		Url:         req.Url,
-		Icon:        req.Icon,
-		Description: req.Description,
-		ParentID:    req.ParentID,
-		Sequence:    req.Sequence,
-		IsActive:    true,
+		Name:          req.Name,
+		Url:           req.Url,
+		PermissionKey: req.PermissionKey,
+		Icon:          req.Icon,
+		Description:   req.Description,
+		ParentID:      req.ParentID,
+		Sequence:      req.Sequence,
+		IsActive:      true,
 	}
 
 	// Save menu
@@ -117,6 +119,10 @@ func (uc *menuUseCase) Update(id uuid.UUID, req *dto.UpdateMenuRequest) (*dto.Me
 		menu.Url = req.Url
 	}
 
+	if req.PermissionKey != "" {
+		menu.PermissionKey = req.PermissionKey
+	}
+
 	if req.Icon != "" {
 		menu.Icon = req.Icon
 	}
@@ -168,16 +174,18 @@ func (uc *menuUseCase) Delete(id uuid.UUID) error {
 
 func (uc *menuUseCase) mapToMenuSimpleResponse(menu *entities.Menu) *dto.MenuResponse {
 	resp := &dto.MenuResponse{
-		ID:          menu.ID,
-		Name:        menu.Name,
-		Url:         menu.Url,
-		Icon:        menu.Icon,
-		Description: menu.Description,
-		ParentID:    menu.ParentID,
-		Sequence:    menu.Sequence,
-		IsActive:    menu.IsActive,
-		CreatedAt:   menu.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   menu.UpdatedAt.Format(time.RFC3339),
+		ID:            menu.ID,
+		Name:          menu.Name,
+		Url:           menu.Url,
+		PermissionKey: menu.PermissionKey,
+		Icon:          menu.Icon,
+		Description:   menu.Description,
+		ParentID:      menu.ParentID,
+		Sequence:      menu.Sequence,
+		IsActive:      menu.IsActive,
+		IsVisible:     menu.IsVisible,
+		CreatedAt:     menu.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     menu.UpdatedAt.Format(time.RFC3339),
 	}
 	return resp
 
@@ -185,16 +193,18 @@ func (uc *menuUseCase) mapToMenuSimpleResponse(menu *entities.Menu) *dto.MenuRes
 
 func (uc *menuUseCase) mapToMenuResponse(menu *entities.Menu) *dto.MenuResponse {
 	resp := &dto.MenuResponse{
-		ID:          menu.ID,
-		Name:        menu.Name,
-		Url:         menu.Url,
-		Icon:        menu.Icon,
-		Description: menu.Description,
-		ParentID:    menu.ParentID,
-		Sequence:    menu.Sequence,
-		IsActive:    menu.IsActive,
-		CreatedAt:   menu.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   menu.UpdatedAt.Format(time.RFC3339),
+		ID:            menu.ID,
+		Name:          menu.Name,
+		Url:           menu.Url,
+		PermissionKey: menu.PermissionKey,
+		Icon:          menu.Icon,
+		Description:   menu.Description,
+		ParentID:      menu.ParentID,
+		Sequence:      menu.Sequence,
+		IsActive:      menu.IsActive,
+		IsVisible:     menu.IsVisible,
+		CreatedAt:     menu.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     menu.UpdatedAt.Format(time.RFC3339),
 	}
 
 	// Map parent if exists
@@ -217,6 +227,16 @@ func (uc *menuUseCase) mapToMenuResponse(menu *entities.Menu) *dto.MenuResponse 
 		}
 	}
 
+	// Map permissions
+	if menu.Permissions != nil {
+		for _, perm := range menu.Permissions {
+			resp.Permissions = append(resp.Permissions, dto.PermissionSimple{
+				ID:   perm.ID,
+				Name: perm.Name,
+			})
+		}
+	}
+
 	return resp
 }
 
@@ -232,4 +252,15 @@ func (uc *menuUseCase) PermissionMenu() ([]*dto.MenuResponse, error) {
 
 	return response, nil
 
+}
+
+func (uc *menuUseCase) AssignPermissions(menuID uuid.UUID, req *dto.MenuAssignPermissionRequest) (*dto.MenuResponse, error) {
+	if err := uc.menuRepo.AssignPermissionsByName(menuID, req.PermissionInputs); err != nil {
+		return nil, err
+	}
+	loaded, err := uc.menuRepo.FindByID(menuID)
+	if err != nil {
+		return nil, err
+	}
+	return uc.mapToMenuResponse(loaded), nil
 }

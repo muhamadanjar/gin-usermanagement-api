@@ -17,4 +17,5 @@ type MenuRepository interface {
 	Delete(id uuid.UUID) error
 	FindMenusByRoleID(roleID uuid.UUID) ([]*entities.Menu, error)
 	MenuBySuperUser() ([]*entities.Menu, error)
+	AssignPermissionsByName(menuID uuid.UUID, names []string) error
 }

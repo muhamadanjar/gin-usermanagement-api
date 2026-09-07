@@ -101,3 +101,34 @@ func (r *userRepository) AssignRoles(userID uuid.UUID, roleIDs []uuid.UUID) erro
 
 	return tx.Commit().Error
 }
+
+func (r *userRepository) AppendRole(userID uuid.UUID, roleID uuid.UUID) error {
+	return r.db.Model(&models.UserModel{ID: userID}).Association("Roles").Append(&models.RoleModel{ID: roleID})
+}
+
+func (r *userRepository) AddTokenHistory(history *entities.TokenHistory) error {
+	m := toModelTokenHistory(history)
+	if err := r.db.Create(m).Error; err != nil {
+		return err
+	}
+	history.ID = m.ID
+	history.CreatedAt = m.CreatedAt
+	history.UpdatedAt = m.UpdatedAt
+	return nil
+}
+
+func (r *userRepository) FindTokenHistory(userID uuid.UUID) ([]*entities.TokenHistory, error) {
+	var rows []*models.TokenHistoryModel
+	if err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	histories := make([]*entities.TokenHistory, 0, len(rows))
+	for _, row := range rows {
+		histories = append(histories, toEntityTokenHistory(row))
+	}
+	return histories, nil
+}
+
+func (r *userRepository) RemoveTokenHistoryByToken(token string) error {
+	return r.db.Where("token = ?", token).Delete(&models.TokenHistoryModel{}).Error
+}

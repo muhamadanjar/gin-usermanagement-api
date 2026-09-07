@@ -3,11 +3,12 @@ package usecase
 import (
 	"errors"
 	"log"
+	"strings"
 	"time"
 	"usermanagement-api/domain/entities"
+	"usermanagement-api/domain/ports"
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/application/dto"
-	"usermanagement-api/pkg/utils"
 
 	"github.com/google/uuid"
 )
@@ -20,19 +21,26 @@ type UserUseCase interface {
 	Delete(id uuid.UUID) error
 	AssignRoles(userID uuid.UUID, roleIDs []uuid.UUID) (*dto.UserResponse, error)
 	GetUserWithMeta(id uuid.UUID) (*dto.UserResponse, error)
+	AssignRole(userID uuid.UUID, roleID uuid.UUID) (*dto.UserResponse, error)
+	SyncRoles(userID uuid.UUID, roleIDs []uuid.UUID) (*dto.UserResponse, error)
+	UpdateAvatar(userID uuid.UUID, avatarURL string) (*dto.UserResponse, error)
+	GetUserMetaData(userID uuid.UUID) (map[string]string, error)
+	GetTokenHistory(userID uuid.UUID) ([]*dto.TokenHistoryResponse, error)
 }
 
 type userUseCase struct {
 	userRepo     repositories.UserRepository
 	roleRepo     repositories.RoleRepository
 	userMetaRepo repositories.UserMetaRepository
+	hasher       ports.PasswordHasher
 }
 
-func NewUserUseCase(userRepo repositories.UserRepository, roleRepo repositories.RoleRepository, userMetaRepo repositories.UserMetaRepository) UserUseCase {
+func NewUserUseCase(userRepo repositories.UserRepository, roleRepo repositories.RoleRepository, userMetaRepo repositories.UserMetaRepository, hasher ports.PasswordHasher) UserUseCase {
 	return &userUseCase{
 		userRepo:     userRepo,
 		roleRepo:     roleRepo,
 		userMetaRepo: userMetaRepo,
+		hasher:       hasher,
 	}
 }
 
@@ -48,7 +56,7 @@ func (uc *userUseCase) Create(req *dto.CreateUserRequest) (*dto.UserResponse, er
 	}
 
 	// Hash password
-	hashedPassword, err := utils.HashPassword(req.Password)
+	hashedPassword, err := uc.hasher.Hash(req.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -57,10 +65,16 @@ func (uc *userUseCase) Create(req *dto.CreateUserRequest) (*dto.UserResponse, er
 	user := &entities.User{
 		Username:  req.Username,
 		Email:     req.Email,
+		Name:      req.Name,
 		Password:  hashedPassword,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		IsActive:  true,
+	}
+
+	// Derive Name from first/last when not provided explicitly
+	if user.Name == "" {
+		user.Name = strings.TrimSpace(req.FirstName + " " + req.LastName)
 	}
 
 	// Add roles if provided
@@ -146,7 +160,7 @@ func (uc *userUseCase) Update(id uuid.UUID, req *dto.UpdateUserRequest) (*dto.Us
 	}
 
 	if req.Password != "" {
-		hashedPassword, err := utils.HashPassword(req.Password)
+		hashedPassword, err := uc.hasher.Hash(req.Password)
 		if err != nil {
 			return nil, err
 		}
@@ -159,6 +173,10 @@ func (uc *userUseCase) Update(id uuid.UUID, req *dto.UpdateUserRequest) (*dto.Us
 
 	if req.LastName != "" {
 		user.LastName = req.LastName
+	}
+
+	if req.Name != "" {
+		user.Name = req.Name
 	}
 
 	if req.Active != nil {
@@ -244,15 +262,19 @@ func (uc *userUseCase) AssignRoles(userID uuid.UUID, roleIDs []uuid.UUID) (*dto.
 
 func (uc *userUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse {
 	resp := &dto.UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		IsActive:  user.IsActive,
-		AvatarUrl: "https://gravatar.com/avatar/" + user.Email,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		Name:        user.Name,
+		FirstName:   user.FirstName,
+		LastName:    user.LastName,
+		IsActive:    user.IsActive,
+		IsSuperuser: user.IsSuperuser,
+		IsVerified:  user.IsVerified,
+		Status:      user.Status,
+		AvatarUrl:   "https://gravatar.com/avatar/" + user.Email,
+		CreatedAt:   user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   user.UpdatedAt.Format(time.RFC3339),
 	}
 
 	// Map roles
@@ -289,4 +311,73 @@ func (uc *userUseCase) GetUserWithMeta(id uuid.UUID) (*dto.UserResponse, error) 
 	response.MetaData = userMeta
 
 	return response, nil
+}
+
+func (uc *userUseCase) AssignRole(userID uuid.UUID, roleID uuid.UUID) (*dto.UserResponse, error) {
+	if _, err := uc.userRepo.FindByID(userID); err != nil {
+		return nil, err
+	}
+	if err := uc.userRepo.AppendRole(userID, roleID); err != nil {
+		return nil, err
+	}
+	updated, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return uc.mapToUserResponse(updated), nil
+}
+
+func (uc *userUseCase) SyncRoles(userID uuid.UUID, roleIDs []uuid.UUID) (*dto.UserResponse, error) {
+	if _, err := uc.userRepo.FindByID(userID); err != nil {
+		return nil, err
+	}
+	if err := uc.userRepo.AssignRoles(userID, roleIDs); err != nil {
+		return nil, err
+	}
+	updated, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return uc.mapToUserResponse(updated), nil
+}
+
+func (uc *userUseCase) UpdateAvatar(userID uuid.UUID, avatarURL string) (*dto.UserResponse, error) {
+	user, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	user.Avatar = avatarURL
+	if err := uc.userRepo.Update(user); err != nil {
+		return nil, err
+	}
+	updated, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return uc.mapToUserResponse(updated), nil
+}
+
+func (uc *userUseCase) GetUserMetaData(userID uuid.UUID) (map[string]string, error) {
+	meta, err := uc.userMetaRepo.GetAllByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+func (uc *userUseCase) GetTokenHistory(userID uuid.UUID) ([]*dto.TokenHistoryResponse, error) {
+	histories, err := uc.userRepo.FindTokenHistory(userID)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]*dto.TokenHistoryResponse, 0, len(histories))
+	for _, h := range histories {
+		resp = append(resp, &dto.TokenHistoryResponse{
+			ID:         h.ID,
+			Token:      h.Token,
+			ExpiredAt:  h.ExpiredAt.Format(time.RFC3339),
+			LastUsedAt: h.LastUsedAt.Format(time.RFC3339),
+		})
+	}
+	return resp, nil
 }

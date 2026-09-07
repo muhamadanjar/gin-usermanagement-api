@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"usermanagement-api/internal/application/dto"
 	"usermanagement-api/internal/application/usecase"
 	"usermanagement-api/internal/constants"
+	"usermanagement-api/internal/presentation/http/middleware"
 	"usermanagement-api/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -25,18 +25,116 @@ func NewAuthHandler(authUseCase usecase.AuthUseCase) *AuthHandler {
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// Accepts both application/x-www-form-urlencoded (FastAPI OAuth2PasswordRequestForm)
+	// and JSON bodies; username+password fields.
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "VALIDATION_ERROR", nil))
 		return
 	}
 
 	resp, err := h.authUseCase.Login(&req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "UNAUTHORIZED", nil))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": resp, "message": "Login Success"})
+	// Mirror FastAPI: AuthToken header + access_token/token_type at top level.
+	c.Header("AuthToken", resp.Auth.AccessToken)
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Login Successfully",
+		"data":         resp,
+		"success":      true,
+		"access_token": resp.Auth.AccessToken,
+		"token_type":   "bearer",
+	})
+}
+
+// Refresh godoc
+// @Summary Refresh access token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param body body dto.RefreshRequest true "Refresh token"
+// @Router /auth/refresh [post]
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req dto.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "VALIDATION_ERROR", nil))
+		return
+	}
+	resp, err := h.authUseCase.Refresh(req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, utils.BuildResponseFailed(err.Error(), "UNAUTHORIZED", nil))
+		return
+	}
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("", resp, nil))
+}
+
+// Logout godoc
+// @Summary Logout current user
+// @Tags auth
+// @Security BearerAuth
+// @Router /logout [get]
+func (h *AuthHandler) Logout(c *gin.Context) {
+	token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed("token missing", "UNAUTHORIZED", nil))
+		return
+	}
+	if err := h.authUseCase.Logout(token); err != nil {
+		c.JSON(http.StatusInternalServerError, utils.BuildResponseFailed(err.Error(), "INTERNAL_SERVER_ERROR", nil))
+		return
+	}
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Successfully Logout", []any{}, nil))
+}
+
+// ChangePassword godoc
+// @Summary Change current user's password
+// @Tags auth
+// @Security BearerAuth
+// @Param body body dto.ChangePasswordRequest true "Old + new password"
+// @Router /auth/change-password [post]
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	principal, exists := middleware.Principal(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, utils.BuildResponseFailed("unauthorized", "UNAUTHORIZED", nil))
+		return
+	}
+	var req dto.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "VALIDATION_ERROR", nil))
+		return
+	}
+	if err := h.authUseCase.ChangePassword(principal.User.ID, &req); err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "BAD_REQUEST", nil))
+		return
+	}
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Password changed successfully", []any{}, nil))
+}
+
+// UpdateProfile godoc
+// @Summary Update current user's profile
+// @Tags auth
+// @Security BearerAuth
+// @Param body body dto.ProfileUpdateRequest true "Profile fields"
+// @Router /auth/profile [put]
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+	principal, exists := middleware.Principal(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, utils.BuildResponseFailed("unauthorized", "UNAUTHORIZED", nil))
+		return
+	}
+	var req dto.ProfileUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "VALIDATION_ERROR", nil))
+		return
+	}
+	resp, err := h.authUseCase.UpdateProfile(principal.User.ID, &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.BuildResponseFailed(err.Error(), "BAD_REQUEST", nil))
+		return
+	}
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("Profile updated successfully", resp, nil))
 }
 
 // Register godoc
@@ -77,7 +175,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Router /auth/permissions [get]
 func (h *AuthHandler) GetUserPermissions(c *gin.Context) {
 	userID, exists := c.Get(constants.UserIDKey)
-	fmt.Println("user id", userID)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": constants.ErrUnauthorized})
 		return
@@ -103,72 +200,6 @@ func (h *AuthHandler) GetUserPermissions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
-}
-
-// CreateModelPermission godoc
-// @Summary Create model permission
-// @Description Assign a permission to a model (role or menu)
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param model-permission body dto.ModelPermissionRequest true "Model permission information"
-// @Success 201 {object} dto.ModelPermissionResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /auth/model-permissions [post]
-func (h *AuthHandler) CreateModelPermission(c *gin.Context) {
-	var req dto.ModelPermissionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	resp, err := h.authUseCase.CreateModelPermission(&req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, resp)
-}
-
-// GetModelPermissions godoc
-// @Summary Get model permissions
-// @Description Get permissions for a specific model (role or menu)
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param model_type query string true "Model type (role or menu)"
-// @Param model_id query int true "Model ID"
-// @Success 200 {array} dto.ModelPermissionResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /auth/model-permissions [get]
-func (h *AuthHandler) GetModelPermissions(c *gin.Context) {
-	modelType := c.Query("model_type")
-	modelIDStr := c.Query("model_id")
-
-	if modelType == "" || modelIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model_type and model_id are required"})
-		return
-	}
-
-	// Removed unused modelID parsing
-
-	modelUUID, err := uuid.Parse(modelIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid model_id format"})
-		return
-	}
-	permissions, err := h.authUseCase.GetModelPermissions(modelType, modelUUID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, permissions)
 }
 
 // GetUser
@@ -301,3 +332,22 @@ func (h *AuthHandler) GetUserMeta(c *gin.Context) {
 
 // 	c.JSON(http.StatusOK, response)
 // }
+
+// GetMyTokenHistory godoc
+// @Summary Get current user's token history
+// @Tags auth
+// @Security BearerAuth
+// @Router /auth/token-history [get]
+func (h *AuthHandler) GetMyTokenHistory(c *gin.Context) {
+	principal, exists := middleware.Principal(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, utils.BuildResponseFailed("unauthorized", "UNAUTHORIZED", nil))
+		return
+	}
+	histories, err := h.authUseCase.GetTokenHistory(principal.User.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.BuildResponseFailed(err.Error(), "INTERNAL_SERVER_ERROR", nil))
+		return
+	}
+	c.JSON(http.StatusOK, utils.BuildResponseSuccess("", histories, nil))
+}

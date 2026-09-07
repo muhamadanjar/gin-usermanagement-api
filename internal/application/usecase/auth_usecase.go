@@ -2,18 +2,13 @@ package usecase
 
 import (
 	"errors"
-	"fmt"
 	"time"
 	"usermanagement-api/domain/entities"
+	"usermanagement-api/domain/ports"
 	"usermanagement-api/domain/repositories"
 	"usermanagement-api/internal/application/dto"
-	"usermanagement-api/pkg/auth"
-	"usermanagement-api/pkg/firebase"
-	"usermanagement-api/pkg/logger"
-	"usermanagement-api/pkg/utils"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -21,42 +16,47 @@ type AuthUseCase interface {
 	Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, error)
 	Register(req *dto.RegisterRequest) (*dto.UserResponse, error)
 	GetUserPermissions(userID uuid.UUID) ([]*entities.Permission, error)
-	CreateModelPermission(req *dto.ModelPermissionRequest) (*dto.ModelPermissionResponse, error)
-	GetModelPermissions(modelType string, modelID uuid.UUID) ([]*dto.ModelPermissionResponse, error)
-	CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error)
 	GetUser(userID uuid.UUID, token string) (*dto.AuthInfoResponse, error)
 	CreateMetaData(userID uuid.UUID, req *dto.CreateMetaDataRequest) (any, error)
 	GetMetaData(userID uuid.UUID) ([]*dto.UserMetaResponse, error)
+	Refresh(refreshToken string) (*dto.AuthInfoResponse, error)
+	Logout(token string) error
+	ChangePassword(userID uuid.UUID, req *dto.ChangePasswordRequest) error
+	UpdateProfile(userID uuid.UUID, req *dto.ProfileUpdateRequest) (*dto.UserResponse, error)
+	GetTokenHistory(userID uuid.UUID) ([]*dto.TokenHistoryResponse, error)
 	// SendToUser(userID uuid.UUID, title string, body string, data map[string]string) (any, error)
 }
 
 type authUseCase struct {
-	userRepo            repositories.UserRepository
-	roleRepo            repositories.RoleRepository
-	menuRepo            repositories.MenuRepository
-	userMetaRepo        repositories.UserMetaRepository
-	modelPermissionRepo repositories.ModelPermissionRepository
-	fcmClient           firebase.FCMClient
-	jwtService          *auth.JWTService
+	userRepo     repositories.UserRepository
+	roleRepo     repositories.RoleRepository
+	menuRepo     repositories.MenuRepository
+	userMetaRepo repositories.UserMetaRepository
+	notifier     ports.Notifier
+	tokenManager ports.TokenManager
+	hasher       ports.PasswordHasher
+	log          ports.Logger
 }
 
 func NewAuthUseCase(
 	userRepo repositories.UserRepository,
 	roleRepo repositories.RoleRepository,
 	menuRepo repositories.MenuRepository,
-	modelPermissionRepo repositories.ModelPermissionRepository,
 	userMetaRepo repositories.UserMetaRepository,
-	fcmClient firebase.FCMClient,
-	jwtService *auth.JWTService,
+	notifier ports.Notifier,
+	tokenManager ports.TokenManager,
+	hasher ports.PasswordHasher,
+	log ports.Logger,
 ) AuthUseCase {
 	return &authUseCase{
-		userRepo:            userRepo,
-		roleRepo:            roleRepo,
-		menuRepo:            menuRepo,
-		userMetaRepo:        userMetaRepo,
-		modelPermissionRepo: modelPermissionRepo,
-		fcmClient:           fcmClient,
-		jwtService:          jwtService,
+		userRepo:     userRepo,
+		roleRepo:     roleRepo,
+		menuRepo:     menuRepo,
+		userMetaRepo: userMetaRepo,
+		notifier:     notifier,
+		tokenManager: tokenManager,
+		hasher:       hasher,
+		log:          log,
 	}
 }
 
@@ -73,15 +73,23 @@ func (uc *authUseCase) Login(req *dto.LoginRequest) (*dto.AuthInfoResponse, erro
 	}
 
 	// Verify password
-	if !utils.CheckPasswordHash(req.Password, user.Password) {
+	if !uc.hasher.Check(req.Password, user.Password) {
 		return nil, errors.New("invalid credentials")
 	}
 
 	// Generate JWT token
-	token, err := uc.jwtService.GenerateTokenPair(user.ID, user.Email)
+	token, err := uc.tokenManager.GenerateTokenPair(user.ID, user.Email)
 	if err != nil {
 		return nil, err
 	}
+
+	// Record token history (mirrors FastAPI: created on every login).
+	_ = uc.userRepo.AddTokenHistory(&entities.TokenHistory{
+		UserID:     user.ID,
+		Token:      token.AccessToken,
+		ExpiredAt:  time.Now().Add(time.Duration(token.ExpiresIn) * time.Second),
+		LastUsedAt: time.Now(),
+	})
 
 	authResp := &dto.AuthResponse{
 		AccessToken:  token.AccessToken,
@@ -129,7 +137,7 @@ func (uc *authUseCase) Register(req *dto.RegisterRequest) (*dto.UserResponse, er
 	}
 
 	// Hash password
-	hashedPassword, err := utils.HashPassword(req.Password)
+	hashedPassword, err := uc.hasher.Hash(req.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +175,7 @@ func (uc *authUseCase) GetUserPermissions(userID uuid.UUID) ([]*entities.Permiss
 	if err != nil {
 		return nil, err
 	}
-	logger.GetLogger().Info("Roles found")
+	uc.log.Info("Roles found")
 
 	// Get role IDs
 	var roleIDs []uuid.UUID
@@ -181,72 +189,9 @@ func (uc *authUseCase) GetUserPermissions(userID uuid.UUID) ([]*entities.Permiss
 		return nil, err
 	}
 
-	logger.GetLogger().Info("Permissions found", zap.Any("permissions", permissions))
+	uc.log.Info("Permissions found", "permissions", permissions)
 
 	return permissions, nil
-}
-
-func (uc *authUseCase) CreateModelPermission(req *dto.ModelPermissionRequest) (*dto.ModelPermissionResponse, error) {
-	// Create model permission
-	modelPermission := &entities.ModelPermission{
-		ModelID:      req.ModelID,
-		ModelType:    req.ModelType,
-		PermissionID: req.PermissionID,
-	}
-
-	// Save model permission
-	if err := uc.modelPermissionRepo.Create(modelPermission); err != nil {
-		return nil, err
-	}
-
-	// Get model permission with permission
-	modelPermissionWithPermission, err := uc.modelPermissionRepo.FindByID(modelPermission.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &dto.ModelPermissionResponse{
-		ID:           modelPermissionWithPermission.ID,
-		ModelID:      modelPermissionWithPermission.ModelID,
-		ModelType:    modelPermissionWithPermission.ModelType,
-		PermissionID: modelPermissionWithPermission.PermissionID,
-		Permission: dto.PermissionSimple{
-			ID:   modelPermissionWithPermission.Permission.ID,
-			Name: modelPermissionWithPermission.Permission.Name,
-		},
-		CreatedAt: modelPermissionWithPermission.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: modelPermissionWithPermission.UpdatedAt.Format(time.RFC3339),
-	}, nil
-}
-
-func (uc *authUseCase) GetModelPermissions(modelType string, modelID uuid.UUID) ([]*dto.ModelPermissionResponse, error) {
-	// Get model permissions
-	modelPermissions, err := uc.modelPermissionRepo.FindByModelTypeAndModelID(modelType, modelID)
-	if err != nil {
-		return nil, err
-	}
-
-	var response []*dto.ModelPermissionResponse
-	for _, mp := range modelPermissions {
-		response = append(response, &dto.ModelPermissionResponse{
-			ID:           mp.ID,
-			ModelID:      mp.ModelID,
-			ModelType:    mp.ModelType,
-			PermissionID: mp.PermissionID,
-			Permission: dto.PermissionSimple{
-				ID:   mp.Permission.ID,
-				Name: mp.Permission.Name,
-			},
-			CreatedAt: mp.CreatedAt.Format(time.RFC3339),
-			UpdatedAt: mp.UpdatedAt.Format(time.RFC3339),
-		})
-	}
-
-	return response, nil
-}
-
-func (uc *authUseCase) CheckPermission(modelType string, modelID uuid.UUID, permissionID uuid.UUID) (bool, error) {
-	return uc.modelPermissionRepo.CheckPermission(modelType, modelID, permissionID)
 }
 
 func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoResponse, error) {
@@ -281,7 +226,6 @@ func (uc *authUseCase) GetUser(userID uuid.UUID, token string) (*dto.AuthInfoRes
 	}
 
 	privileges, err := uc.getPrivilegesForUser(user.ID)
-	fmt.Println("Privileges:", privileges)
 	if err == nil && len(privileges) > 0 {
 		userResp.Privileges = privileges
 	}
@@ -330,7 +274,6 @@ func (uc *authUseCase) getPrivilegesForUser(userID uuid.UUID) ([]dto.MenuRespons
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("User Roles:", userID)
 
 	// Get all menu IDs accessible by these roles
 	var menuIDs []uuid.UUID
@@ -426,31 +369,142 @@ func (uc *authUseCase) GetMetaData(userID uuid.UUID) ([]*dto.UserMetaResponse, e
 	return response, nil
 }
 
-// func (uc *authUseCase) SendToUser(userID uuid.UUID, title string, body string, data map[string]string) (any, error) {
-// 	// Get user device tokens
-// 	userMeta, err := uc.userMetaRepo.FindByUserIDAndKey(userID, "device_token")
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if userMeta == nil {
-// 		return nil, errors.New("no device token found for user")
-// 	}
-
-// 	// Send notification
-// 	response, err := uc.fcmClient.s(userMeta.Value, title, body, data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return response, nil
-
-// }
-
 func formatTimePointer(t time.Time) *string {
 	if t.IsZero() {
 		return nil
 	}
 	formatted := t.Format(time.RFC3339)
 	return &formatted
+}
+
+func (uc *authUseCase) Refresh(refreshToken string) (*dto.AuthInfoResponse, error) {
+	userID, err := uc.tokenManager.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return nil, errors.New("invalid refresh token")
+	}
+	user, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, errors.New("invalid refresh token")
+	}
+	pair, err := uc.tokenManager.GenerateTokenPair(user.ID, user.Email)
+	if err != nil {
+		return nil, err
+	}
+	_ = uc.userRepo.AddTokenHistory(&entities.TokenHistory{
+		UserID:     user.ID,
+		Token:      pair.AccessToken,
+		ExpiredAt:  time.Now().Add(time.Duration(pair.ExpiresIn) * time.Second),
+		LastUsedAt: time.Now(),
+	})
+	// Rotate: revoke the used refresh token.
+	_ = uc.userRepo.RemoveTokenHistoryByToken(refreshToken)
+
+	userResp := &dto.UserResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Name:      user.Name,
+		IsActive:  user.IsActive,
+		AvatarUrl: "https://gravatar.com/avatar/" + user.Email,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+	}
+	return &dto.AuthInfoResponse{
+		Auth: dto.AuthResponse{
+			AccessToken:  pair.AccessToken,
+			RefreshToken: pair.RefreshToken,
+			Type:         "bearer",
+		},
+		User: *userResp,
+	}, nil
+}
+
+func (uc *authUseCase) Logout(token string) error {
+	return uc.userRepo.RemoveTokenHistoryByToken(token)
+}
+
+func (uc *authUseCase) ChangePassword(userID uuid.UUID, req *dto.ChangePasswordRequest) error {
+	user, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return errors.New("invalid credentials")
+	}
+	if !uc.hasher.Check(req.OldPassword, user.Password) {
+		return errors.New("old password is incorrect")
+	}
+	hashed, err := uc.hasher.Hash(req.NewPassword)
+	if err != nil {
+		return err
+	}
+	user.Password = hashed
+	return uc.userRepo.Update(user)
+}
+
+func (uc *authUseCase) UpdateProfile(userID uuid.UUID, req *dto.ProfileUpdateRequest) (*dto.UserResponse, error) {
+	user, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+	if req.FirstName != "" {
+		user.FirstName = req.FirstName
+	}
+	if req.LastName != "" {
+		user.LastName = req.LastName
+	}
+	if req.Email != "" && req.Email != user.Email {
+		if existing, err := uc.userRepo.FindByEmail(req.Email); err == nil && existing.ID != userID {
+			return nil, errors.New("email already exists")
+		}
+		user.Email = req.Email
+		user.Username = req.Email
+	}
+	if req.Avatar != "" {
+		user.Avatar = req.Avatar
+	}
+	if err := uc.userRepo.Update(user); err != nil {
+		return nil, err
+	}
+	updated, err := uc.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	resp := &dto.UserResponse{
+		ID:          updated.ID,
+		Username:    updated.Username,
+		Email:       updated.Email,
+		Name:        updated.Name,
+		FirstName:   updated.FirstName,
+		LastName:    updated.LastName,
+		IsActive:    updated.IsActive,
+		IsSuperuser: updated.IsSuperuser,
+		Status:      updated.Status,
+		AvatarUrl:   "https://gravatar.com/avatar/" + updated.Email,
+		CreatedAt:   updated.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   updated.UpdatedAt.Format(time.RFC3339),
+	}
+	for _, r := range updated.Roles {
+		resp.Roles = append(resp.Roles, dto.RoleSimple{ID: r.ID, Name: r.Name})
+	}
+	return resp, nil
+}
+
+func (uc *authUseCase) GetTokenHistory(userID uuid.UUID) ([]*dto.TokenHistoryResponse, error) {
+	histories, err := uc.userRepo.FindTokenHistory(userID)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]*dto.TokenHistoryResponse, 0, len(histories))
+	for _, h := range histories {
+		resp = append(resp, &dto.TokenHistoryResponse{
+			ID:         h.ID,
+			Token:      h.Token,
+			ExpiredAt:  h.ExpiredAt.Format(time.RFC3339),
+			LastUsedAt: h.LastUsedAt.Format(time.RFC3339),
+		})
+	}
+	return resp, nil
 }

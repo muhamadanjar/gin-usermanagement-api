@@ -120,3 +120,18 @@ func (r *roleRepository) FindPermissionsByRoleIDs(roleIDs []uuid.UUID) ([]*entit
 	}
 	return permissions, err
 }
+
+func (r *roleRepository) FindMembersByRoleID(roleID uuid.UUID) ([]*entities.User, error) {
+	var users []*models.UserModel
+	if err := r.db.Model(&models.UserModel{}).
+		Joins("JOIN user_roles ur ON ur.user_id = users.id").
+		Where("ur.role_id = ?", roleID).
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+	members := make([]*entities.User, 0, len(users))
+	for _, row := range users {
+		members = append(members, toEntityUser(row))
+	}
+	return members, nil
+}

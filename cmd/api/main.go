@@ -35,6 +35,7 @@ func main() {
 		appContainer.FCMClient,
 		appContainer.Config.CORS,
 		appContainer.JWTService,
+		appContainer.Logger,
 	)
 
 	// Initialize Server with containers

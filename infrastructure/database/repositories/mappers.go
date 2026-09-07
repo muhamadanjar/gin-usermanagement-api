@@ -13,16 +13,24 @@ func toEntityUser(m *models.UserModel) *entities.User {
 		return nil
 	}
 	u := &entities.User{
-		ID:          m.ID,
-		Username:    m.Username,
-		Email:       m.Email,
-		Password:    m.Password,
-		FirstName:   m.FirstName,
-		LastName:    m.LastName,
-		IsSuperuser: m.IsSuperuser,
-		IsActive:    m.IsActive,
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:                  m.ID,
+		Username:            m.Username,
+		Email:               m.Email,
+		Name:                m.Name,
+		Password:            m.Password,
+		FirstName:           m.FirstName,
+		LastName:            m.LastName,
+		IsVerified:          m.IsVerified,
+		IsSuperuser:         m.IsSuperuser,
+		IsActive:            m.IsActive,
+		Avatar:              m.Avatar,
+		EmailVerifiedAt:     m.EmailVerifiedAt,
+		FailedLoginAttempts: m.FailedLoginAttempts,
+		LockedUntil:         m.LockedUntil,
+		LastLogin:           m.LastLogin,
+		Status:              m.Status,
+		CreatedAt:           m.CreatedAt,
+		UpdatedAt:           m.UpdatedAt,
 	}
 	for _, r := range m.Roles {
 		u.Roles = append(u.Roles, toEntityRole(r))
@@ -35,16 +43,24 @@ func toModelUser(e *entities.User) *models.UserModel {
 		return nil
 	}
 	m := &models.UserModel{
-		ID:          e.ID,
-		Username:    e.Username,
-		Email:       e.Email,
-		Password:    e.Password,
-		FirstName:   e.FirstName,
-		LastName:    e.LastName,
-		IsSuperuser: e.IsSuperuser,
-		IsActive:    e.IsActive,
-		CreatedAt:   e.CreatedAt,
-		UpdatedAt:   e.UpdatedAt,
+		ID:                  e.ID,
+		Username:            e.Username,
+		Email:               e.Email,
+		Name:                e.Name,
+		Password:            e.Password,
+		FirstName:           e.FirstName,
+		LastName:            e.LastName,
+		IsVerified:          e.IsVerified,
+		IsSuperuser:         e.IsSuperuser,
+		IsActive:            e.IsActive,
+		Avatar:              e.Avatar,
+		EmailVerifiedAt:     e.EmailVerifiedAt,
+		FailedLoginAttempts: e.FailedLoginAttempts,
+		LockedUntil:         e.LockedUntil,
+		LastLogin:           e.LastLogin,
+		Status:              e.Status,
+		CreatedAt:           e.CreatedAt,
+		UpdatedAt:           e.UpdatedAt,
 	}
 	for _, r := range e.Roles {
 		m.Roles = append(m.Roles, toModelRole(r))
@@ -60,6 +76,7 @@ func toEntityRole(m *models.RoleModel) *entities.Role {
 		ID:          m.ID,
 		Name:        m.Name,
 		Description: m.Description,
+		IsActive:    m.IsActive,
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}
@@ -77,6 +94,7 @@ func toModelRole(e *entities.Role) *models.RoleModel {
 		ID:          e.ID,
 		Name:        e.Name,
 		Description: e.Description,
+		IsActive:    e.IsActive,
 		CreatedAt:   e.CreatedAt,
 		UpdatedAt:   e.UpdatedAt,
 	}
@@ -117,21 +135,25 @@ func toEntityMenu(m *models.MenuModel) *entities.Menu {
 		return nil
 	}
 	menu := &entities.Menu{
-		ID:          m.ID,
-		Name:        m.Name,
-		Url:         m.Url,
-		Icon:        m.Icon,
-		Description: m.Description,
-		ParentID:    m.ParentID,
-		Sequence:    m.Sequence,
-		IsActive:    m.IsActive,
-		IsVisible:   m.IsVisible,
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:            m.ID,
+		Name:          m.Name,
+		Url:           m.Url,
+		PermissionKey: m.PermissionKey,
+		Icon:          m.Icon,
+		Description:   m.Description,
+		ParentID:      m.ParentID,
+		Sequence:      m.Sequence,
+		IsActive:      m.IsActive,
+		IsVisible:     m.IsVisible,
+		CreatedAt:     m.CreatedAt,
+		UpdatedAt:     m.UpdatedAt,
 	}
 	menu.Parent = toEntityMenu(m.Parent)
 	for _, c := range m.Children {
 		menu.Children = append(menu.Children, toEntityMenu(c))
+	}
+	for _, p := range m.Permissions {
+		menu.Permissions = append(menu.Permissions, toEntityPermission(p))
 	}
 	return menu
 }
@@ -143,47 +165,18 @@ func toModelMenu(e *entities.Menu) *models.MenuModel {
 		return nil
 	}
 	return &models.MenuModel{
-		ID:          e.ID,
-		Name:        e.Name,
-		Url:         e.Url,
-		Icon:        e.Icon,
-		Description: e.Description,
-		ParentID:    e.ParentID,
-		Sequence:    e.Sequence,
-		IsActive:    e.IsActive,
-		IsVisible:   e.IsVisible,
-		CreatedAt:   e.CreatedAt,
-		UpdatedAt:   e.UpdatedAt,
-	}
-}
-
-func toEntityModelPermission(m *models.ModelPermissionModel) *entities.ModelPermission {
-	if m == nil {
-		return nil
-	}
-	mp := &entities.ModelPermission{
-		ID:           m.ID,
-		ModelID:      m.ModelID,
-		ModelType:    m.ModelType,
-		PermissionID: m.PermissionID,
-		CreatedAt:    m.CreatedAt,
-		UpdatedAt:    m.UpdatedAt,
-	}
-	mp.Permission = *toEntityPermission(&m.Permission)
-	return mp
-}
-
-func toModelModelPermission(e *entities.ModelPermission) *models.ModelPermissionModel {
-	if e == nil {
-		return nil
-	}
-	return &models.ModelPermissionModel{
-		ID:           e.ID,
-		ModelID:      e.ModelID,
-		ModelType:    e.ModelType,
-		PermissionID: e.PermissionID,
-		CreatedAt:    e.CreatedAt,
-		UpdatedAt:    e.UpdatedAt,
+		ID:            e.ID,
+		Name:          e.Name,
+		Url:           e.Url,
+		PermissionKey: e.PermissionKey,
+		Icon:          e.Icon,
+		Description:   e.Description,
+		ParentID:      e.ParentID,
+		Sequence:      e.Sequence,
+		IsActive:      e.IsActive,
+		IsVisible:     e.IsVisible,
+		CreatedAt:     e.CreatedAt,
+		UpdatedAt:     e.UpdatedAt,
 	}
 }
 
@@ -223,4 +216,32 @@ func toModelSetting(e *entities.Setting) *models.SettingModel {
 		return nil
 	}
 	return &models.SettingModel{Key: e.Key, Value: e.Value}
+}
+
+func toEntityTokenHistory(m *models.TokenHistoryModel) *entities.TokenHistory {
+	if m == nil {
+		return nil
+	}
+	return &entities.TokenHistory{
+		ID:         m.ID,
+		UserID:     m.UserID,
+		Token:      m.Token,
+		ExpiredAt:  m.ExpiredAt,
+		LastUsedAt: m.LastUsedAt,
+		CreatedAt:  m.CreatedAt,
+		UpdatedAt:  m.UpdatedAt,
+	}
+}
+
+func toModelTokenHistory(e *entities.TokenHistory) *models.TokenHistoryModel {
+	if e == nil {
+		return nil
+	}
+	return &models.TokenHistoryModel{
+		ID:         e.ID,
+		UserID:     e.UserID,
+		Token:      e.Token,
+		ExpiredAt:  e.ExpiredAt,
+		LastUsedAt: e.LastUsedAt,
+	}
 }

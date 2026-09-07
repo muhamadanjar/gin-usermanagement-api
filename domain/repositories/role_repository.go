@@ -16,4 +16,5 @@ type RoleRepository interface {
 	AssignPermissions(roleID uuid.UUID, permissionIDs []uuid.UUID) error
 	FindRolesByUserID(userID uuid.UUID) ([]*entities.Role, error)
 	FindPermissionsByRoleIDs(roleIDs []uuid.UUID) ([]*entities.Permission, error)
+	FindMembersByRoleID(roleID uuid.UUID) ([]*entities.User, error)
 }
