@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 	"usermanagement-api/config"
-	"usermanagement-api/domain/entities"
+	"usermanagement-api/infrastructure/database/models"
 
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -57,13 +57,13 @@ func MigrateDB(db *gorm.DB, zapLogger *zap.Logger) error {
 	}
 
 	err := db.AutoMigrate(
-		&entities.User{},
-		&entities.Role{},
-		&entities.Permission{},
-		&entities.Menu{},
-		&entities.ModelPermission{},
-		&entities.Setting{},
-		&entities.UserMeta{},
+		&models.UserModel{},
+		&models.RoleModel{},
+		&models.PermissionModel{},
+		&models.MenuModel{},
+		&models.ModelPermissionModel{},
+		&models.SettingModel{},
+		&models.UserMetaModel{},
 	)
 	if err != nil {
 		zapLogger.Error("Failed to migrate database", zap.Error(err))

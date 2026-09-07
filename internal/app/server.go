@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 	"usermanagement-api/internal/container"
+	httpapi "usermanagement-api/internal/presentation/http"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -36,7 +37,7 @@ func (s *Server) Initialize() error {
 	s.router.Use(s.businessContainer.CORSMiddleware.SetupCORS())
 
 	// Setup routes
-	s.setupRoutes()
+	httpapi.RegisterRoutes(s.router, s.businessContainer)
 
 	// Setup HTTP server using config from AppContainer
 	addr := fmt.Sprintf("%s:%d", s.appContainer.Config.Server.Host, s.appContainer.Config.Server.Port)

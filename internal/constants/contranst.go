@@ -2,6 +2,7 @@ package constants
 
 // Context keys
 const (
+	PrincipalKey   = "principal"
 	UserIDKey      = "userID"
 	UserRolesKey   = "userRoles"
 	PermissionsKey = "permissions"

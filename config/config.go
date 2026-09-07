@@ -39,10 +39,10 @@ type DatabaseConfig struct {
 
 // JWTConfig holds JWT-related configuration
 type JWTConfig struct {
-	Secret                string
-	RefreshTokenSecret    string
-	Expiration            int // in hours
-	AccessTokenExpiration int // in hours
+	Secret                 string
+	RefreshTokenSecret     string
+	Expiration             int // in hours
+	AccessTokenExpiration  int // in hours
 	RefreshTokenExpiration int // in hours
 }
 
@@ -350,10 +350,10 @@ func LoadConfig() (*Config, error) {
 			LogLevel: dbLogLevel,
 		},
 		JWT: JWTConfig{
-			Secret:                jwtSecret,
-			RefreshTokenSecret:    refreshTokenSecret,
-			Expiration:            jwtExpiration,
-			AccessTokenExpiration: accessTokenExpiration,
+			Secret:                 jwtSecret,
+			RefreshTokenSecret:     refreshTokenSecret,
+			Expiration:             jwtExpiration,
+			AccessTokenExpiration:  accessTokenExpiration,
 			RefreshTokenExpiration: refreshTokenExpiration,
 		},
 		Email: EmailConfig{

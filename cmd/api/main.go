@@ -28,12 +28,13 @@ func main() {
 		}
 	}()
 
-	// Initialize Business Container (Domain layer)
+	// Initialize Business Container (application + infrastructure wiring)
 	businessContainer := container.NewBusinessContainer(
 		appContainer.DB,
 		appContainer.Cache,
 		appContainer.FCMClient,
 		appContainer.Config.CORS,
+		appContainer.JWTService,
 	)
 
 	// Initialize Server with containers

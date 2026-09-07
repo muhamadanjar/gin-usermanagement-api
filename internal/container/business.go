@@ -2,36 +2,22 @@ package container
 
 import (
 	"usermanagement-api/config"
-	"usermanagement-api/domain/repositories"
-	"usermanagement-api/internal/delivery/http/handlers"
-	"usermanagement-api/internal/delivery/http/middleware"
-	"usermanagement-api/internal/usecase"
+	"usermanagement-api/internal/presentation/http/handlers"
+	"usermanagement-api/internal/presentation/http/middleware"
+	"usermanagement-api/pkg/auth"
 	"usermanagement-api/pkg/cache"
 	"usermanagement-api/pkg/firebase"
 
 	"gorm.io/gorm"
 )
 
-// BusinessContainer holds all business logic dependencies
+// BusinessContainer is the composition root: it assembles every module and
+// hands the finished handlers to the routing layer. Per-module factories in
+// this package own their own dependency wiring.
 type BusinessContainer struct {
-	// Repositories
-	UserRepository            repositories.UserRepository
-	RoleRepository            repositories.RoleRepository
-	PermissionRepository      repositories.PermissionRepository
-	MenuRepository            repositories.MenuRepository
-	ModelPermissionRepository repositories.ModelPermissionRepository
-	UserMetaRepository        repositories.UserMetaRepository
-	SettingRepository         repositories.SettingRepository
-
-	// Use Cases
-	UserUseCase         usecase.UserUseCase
-	RoleUseCase         usecase.RoleUseCase
-	PermissionUseCase   usecase.PermissionUseCase
-	MenuUseCase         usecase.MenuUseCase
-	AuthUseCase         usecase.AuthUseCase
-	UserMetaUseCase     usecase.UserMetaUseCase
-	SettingUseCase      usecase.SettingUseCase
-	NotificationUseCase usecase.NotificationUseCase
+	// Middleware
+	AuthMiddleware middleware.AuthMiddleware
+	CORSMiddleware middleware.CORSMiddleware
 
 	// Handlers
 	UserHandler         *handlers.UserHandler
@@ -42,79 +28,25 @@ type BusinessContainer struct {
 	UserMetaHandler     *handlers.UserMetaHandler
 	SettingHandler      *handlers.SettingHandler
 	NotificationHandler *handlers.NotificationHandler
-
-	// Middleware
-	AuthMiddleware middleware.AuthMiddleware
-	CORSMiddleware middleware.CORSMiddleware
 }
 
-// NewBusinessContainer creates and initializes a new BusinessContainer
-func NewBusinessContainer(db *gorm.DB, cache cache.Cache, fcmClient firebase.FCMClient, corsConfig config.CORSConfig) *BusinessContainer {
-	// Initialize repositories
-	userRepo := repositories.NewUserRepository(db)
-	roleRepo := repositories.NewRoleRepository(db)
-	permissionRepo := repositories.NewPermissionRepository(db)
-	menuRepo := repositories.NewMenuRepository(db)
-	modelPermissionRepo := repositories.NewModelPermissionRepository(db)
-	userMetaRepo := repositories.NewUserMetaRepository(db)
-	settingRepo := repositories.NewSettingRepository(db)
-
-	// Initialize use cases
-	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, userMetaRepo)
-	roleUseCase := usecase.NewRoleUseCase(roleRepo, permissionRepo)
-	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
-	menuUseCase := usecase.NewMenuUseCase(menuRepo)
-	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, menuRepo, modelPermissionRepo, userMetaRepo, fcmClient)
-	userMetaUseCase := usecase.NewUserMetaUseCase(userMetaRepo, cache)
-	settingUseCase := usecase.NewSettingUseCase(settingRepo, cache)
-	notificationUseCase := usecase.NewNotificationUseCase(userMetaRepo, fcmClient)
-
-	// Initialize middleware
-	authMiddleware := middleware.NewAuthMiddleware(userRepo, roleRepo, permissionRepo, modelPermissionRepo)
-	corsMiddleware := middleware.NewCORSMiddleware(corsConfig)
-
-	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userUseCase)
-	roleHandler := handlers.NewRoleHandler(roleUseCase)
-	permissionHandler := handlers.NewPermissionHandler(permissionUseCase)
-	menuHandler := handlers.NewMenuHandler(menuUseCase)
-	authHandler := handlers.NewAuthHandler(authUseCase)
-	userMetaHandler := handlers.NewUserMetaHandler(userMetaUseCase)
-	settingHandler := handlers.NewSettingHandler(settingUseCase)
-	notificationHandler := handlers.NewNotificationHandler(notificationUseCase)
-
+func NewBusinessContainer(
+	db *gorm.DB,
+	cache cache.Cache,
+	fcmClient firebase.FCMClient,
+	corsConfig config.CORSConfig,
+	jwtService *auth.JWTService,
+) *BusinessContainer {
 	return &BusinessContainer{
-		// Repositories
-		UserRepository:            userRepo,
-		RoleRepository:            roleRepo,
-		PermissionRepository:      permissionRepo,
-		MenuRepository:            menuRepo,
-		ModelPermissionRepository: modelPermissionRepo,
-		UserMetaRepository:        userMetaRepo,
-		SettingRepository:         settingRepo,
-
-		// Use Cases
-		UserUseCase:         userUseCase,
-		RoleUseCase:         roleUseCase,
-		PermissionUseCase:   permissionUseCase,
-		MenuUseCase:         menuUseCase,
-		AuthUseCase:         authUseCase,
-		UserMetaUseCase:     userMetaUseCase,
-		SettingUseCase:      settingUseCase,
-		NotificationUseCase: notificationUseCase,
-
-		// Handlers
-		UserHandler:         userHandler,
-		RoleHandler:         roleHandler,
-		PermissionHandler:   permissionHandler,
-		MenuHandler:         menuHandler,
-		AuthHandler:         authHandler,
-		UserMetaHandler:     userMetaHandler,
-		SettingHandler:      settingHandler,
-		NotificationHandler: notificationHandler,
-
-		// Middleware
-		AuthMiddleware: authMiddleware,
-		CORSMiddleware: corsMiddleware,
+		CORSMiddleware:      middleware.NewCORSMiddleware(corsConfig),
+		AuthMiddleware:      NewAuthzModule(db, jwtService).Middleware,
+		UserHandler:         NewUserModule(db).Handler,
+		RoleHandler:         NewRoleModule(db).Handler,
+		PermissionHandler:   NewPermissionModule(db).Handler,
+		MenuHandler:         NewMenuModule(db).Handler,
+		AuthHandler:         NewAuthModule(db, fcmClient, jwtService).Handler,
+		UserMetaHandler:     NewUserMetaModule(db, cache).Handler,
+		SettingHandler:      NewSettingModule(db, cache).Handler,
+		NotificationHandler: NewNotificationModule(db, fcmClient).Handler,
 	}
 }

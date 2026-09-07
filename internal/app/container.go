@@ -14,11 +14,12 @@ import (
 
 // AppContainer holds all infrastructure dependencies
 type AppContainer struct {
-	Config    *config.Config
-	Logger    *zap.Logger
-	DB        *gorm.DB
-	Cache     cache.Cache
-	FCMClient firebase.FCMClient
+	Config     *config.Config
+	Logger     *zap.Logger
+	DB         *gorm.DB
+	Cache      cache.Cache
+	FCMClient  firebase.FCMClient
+	JWTService *auth.JWTService
 }
 
 // NewAppContainer creates and initializes a new AppContainer
@@ -67,16 +68,16 @@ func NewAppContainer() (*AppContainer, error) {
 		return nil, err
 	}
 
-	// Initialize JWT service and set as global for backward compatibility
+	// Initialize JWT service (injected into use cases; no global state)
 	jwtService := auth.NewJWTService(cfg.JWT)
-	auth.SetGlobalJWTService(jwtService)
 
 	return &AppContainer{
-		Config:    cfg,
-		Logger:    zapLogger,
-		DB:        db,
-		Cache:     cacheInstance,
-		FCMClient: fcmClient,
+		Config:     cfg,
+		Logger:     zapLogger,
+		DB:         db,
+		Cache:      cacheInstance,
+		FCMClient:  fcmClient,
+		JWTService: jwtService,
 	}, nil
 }
 
